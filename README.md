@@ -71,14 +71,6 @@ Worth knowing before you deploy:
 - If a deploy rejects `maxDuration: 30`, delete the `functions` block from
   `vercel.json` and the platform default applies.
 
-## Fixed behaviour
-
-The UI exposes one scraping toggle, **Bỏ hình ảnh** (remove images). Everything else is
-fixed in [`src/lib/types.ts`](src/lib/types.ts) (`FIXED`): chapter links are restricted
-to the index page's own host, sorted by chapter number whenever every link yields one,
-and flattened to plain text inside chapter bodies. Concurrency (4), request delay
-(250 ms) and retries (2) are constants in `useScraper`.
-
 ## Output formats
 
 Both formats open with the index page's own text, then the chapters.
@@ -119,8 +111,3 @@ of the initial bundle.
 
 Formatting is fixed by Prettier (`.prettierrc.json`); run `npm run format` or
 `npm run format:check`.
-
-## Note
-
-This only retrieves what the site already serves publicly. Respect the source site's
-terms and the author's rights — keep the output for personal reading.
