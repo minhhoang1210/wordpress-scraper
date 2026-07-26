@@ -7,10 +7,7 @@ import { useScraper } from "./composables/useScraper";
 
 const s = useScraper();
 
-const busy = computed(
-  () => s.phase.value === "indexing" || s.phase.value === "scraping",
-);
-const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
+const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
 </script>
 
 <template>
@@ -29,7 +26,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
     <!-- Bước 1: nguồn -->
     <PanelSection
       title="1 · Trang mục lục"
-      subtitle="Liên kết chương được nhận diện qua các từ khoá: chuong, chap, chapter, phien-ngoai, ngoai-truyen, vi-thanh."
+      subtitle="Nhận diện chương qua các từ khoá: chuong, chap, chapter, phien-ngoai, ngoai-truyen, vi-thanh."
       class="mb-5"
     >
       <form
@@ -42,12 +39,12 @@ const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
           required
           placeholder="https://ten-mien.wordpress.com/ten-truyen/"
           class="flex-1 rounded-lg border border-white/10 bg-ink-950 px-4 py-2.5 text-sm outline-none focus:border-indigo-400"
-          :disabled="busy"
+          :disabled="s.busy.value"
         />
         <button
           type="submit"
           class="rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-400 disabled:opacity-40"
-          :disabled="busy || !s.indexUrl.value.trim()"
+          :disabled="s.busy.value || !s.indexUrl.value.trim()"
         >
           {{ s.phase.value === "indexing" ? "Đang tải…" : "Tìm chương" }}
         </button>
@@ -66,10 +63,10 @@ const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
     </PanelSection>
 
     <p
-      v-if="s.errorMessage.value"
+      v-if="s.errorText.value"
       class="mb-5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
     >
-      {{ s.errorMessage.value }}
+      {{ s.errorText.value }}
     </p>
 
     <!-- Bước 2: chương -->
@@ -97,7 +94,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
           Huỷ
         </button>
         <button
-          v-if="s.failed.value.length > 0 && !busy"
+          v-if="s.failed.value.length > 0 && !s.busy.value"
           type="button"
           class="rounded-lg border border-amber-400/40 px-4 py-2 text-sm text-amber-200 hover:bg-amber-400/10"
           @click="s.retryFailed()"
@@ -110,7 +107,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
         </span>
       </div>
 
-      <div v-if="busy || s.progress.value > 0" class="mb-4">
+      <div v-if="s.busy.value || s.progress.value > 0" class="mb-4">
         <div class="h-1.5 overflow-hidden rounded-full bg-white/10">
           <div
             class="h-full rounded-full bg-indigo-500 transition-[width] duration-300"
@@ -124,7 +121,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
 
       <ChapterList
         :chapters="s.chapters.value"
-        :disabled="busy"
+        :disabled="s.busy.value"
         @select-all="s.selectAll"
       />
     </PanelSection>

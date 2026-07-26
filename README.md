@@ -16,7 +16,7 @@ Then open http://localhost:5173.
    `https://chanhday283.wordpress.com/sau-khi-xuyen-thanh-thien-mieu-tinh-linh-cua-giao-thao/`.
    The app reads the page's `<article>` and collects every link whose URL or anchor text
    contains `chuong`, `chap`, `chapter`, `phien-ngoai`, `ngoai-truyen` or `vi-thanh`.
-   Matching ignores Vietnamese diacritics, so *Chương 12* and `chuong-12` both hit.
+   Matching ignores Vietnamese diacritics, so _Chương 12_ and `chuong-12` both hit.
 2. **Chapters** — each linked page is fetched with bounded concurrency, and its
    `<article>` element is extracted and cleaned (sharing widgets, related-post blocks,
    comments, scripts and navigation are stripped; relative URLs are made absolute).
@@ -87,9 +87,9 @@ Both formats open with the index page's own text, then the chapters.
 package, `nav.xhtml` plus a `toc.ncx` for older readers, a generated cover, a
 title/synopsis page, and one XHTML file per chapter. Chapter HTML is converted to
 well-formed XHTML, since readers parse content with a strict XML parser. Images are
-downloaded and embedded so the book works offline, unless you tick *Bỏ hình ảnh*.
+downloaded and embedded so the book works offline, unless you tick _Bỏ hình ảnh_.
 
-**PDF** — title page, a clickable *Mục lục* with real page numbers, then a *Giới thiệu*
+**PDF** — title page, a clickable _Mục lục_ with real page numbers, then a _Giới thiệu_
 section carrying the index page's content, then one chapter per page break, at
 A4/A5/Letter. Noto Sans is embedded as a Type0/Identity-H font so Vietnamese diacritics
 render correctly and text stays selectable and searchable. Images are not drawn into
@@ -101,17 +101,24 @@ of the initial bundle.
 
 ## Layout
 
-| Path | Role |
-| --- | --- |
-| `api/fetch.ts` | CORS passthrough — Vercel function and local middleware |
-| `server/proxy.ts` | Mounts `api/fetch.ts` on the Vite dev/preview server |
-| `src/lib/fetcher.ts` | Proxy requests, retries with backoff |
-| `src/lib/parser.ts` | `<article>` extraction, chapter-link detection, sanitising |
-| `src/lib/epub.ts` | EPUB 3 packaging |
-| `src/lib/pdf.ts` | PDF typesetting and font embedding |
-| `src/lib/blocks.ts` | HTML → linear text blocks for the PDF writer |
-| `src/lib/xhtml.ts` | HTML → well-formed XHTML |
-| `src/composables/useScraper.ts` | Orchestration, progress, export state |
+| Path                            | Role                                                       |
+| ------------------------------- | ---------------------------------------------------------- |
+| `api/fetch.ts`                  | CORS passthrough — Vercel function and local middleware    |
+| `server/proxy.ts`               | Mounts `api/fetch.ts` on the Vite dev/preview server       |
+| `src/composables/useScraper.ts` | Orchestration, progress, export state                      |
+| `src/lib/fetcher.ts`            | Proxy requests, retries with backoff                       |
+| `src/lib/parser.ts`             | `<article>` extraction, chapter-link detection, sanitising |
+| `src/lib/blocks.ts`             | HTML → linear text blocks for the PDF writer               |
+| `src/lib/xhtml.ts`              | HTML → well-formed XHTML                                   |
+| `src/lib/epub/`                 | EPUB 3 packaging: builder, OPF/NCX templates, images       |
+| `src/lib/pdf/`                  | PDF builder: font loading, image decoding, page layout     |
+| `src/lib/types.ts`              | Shared domain types and exporter contracts                 |
+| `src/lib/text.ts`               | Diacritic-insensitive normalising, slugs, formatting       |
+| `src/lib/async.ts`              | `runPool` — bounded-concurrency task runner                |
+| `src/lib/download.ts`           | Triggers the browser save dialog for a blob                |
+
+Formatting is fixed by Prettier (`.prettierrc.json`); run `npm run format` or
+`npm run format:check`.
 
 ## Note
 

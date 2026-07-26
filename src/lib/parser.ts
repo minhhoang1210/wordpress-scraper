@@ -1,14 +1,10 @@
-import {
-  FIXED,
-  type Chapter,
-  type ScrapeOptions,
-  type StoryMeta,
-} from "./types";
+import type { Chapter, CleanOptions, StoryMeta } from "./types";
+import { collapseWhitespace, normalize } from "./text";
 
 /**
  * A link is treated as a chapter when its href or anchor text contains one of these
- * markers. Text is compared with diacritics stripped, so "Chương 12", "chuong-12",
- * "Phiên ngoại 3" and "phien-ngoai-3" all match the same keyword.
+ * markers. Both sides are compared with diacritics stripped, so "Chương 12",
+ * "chuong-12", "Phiên ngoại 3" and "phien-ngoai-3" all match.
  */
 export const CHAPTER_KEYWORDS = [
   "chuong",
@@ -18,6 +14,31 @@ export const CHAPTER_KEYWORDS = [
   "ngoai-truyen",
   "vi-thanh",
 ];
+
+/**
+ * Each keyword in both spellings: URL slugs join words with hyphens
+ * ("phien-ngoai-3"), while anchor text separates them with spaces ("Phiên ngoại 3").
+ * Precomputed so matching stays a plain substring test.
+ */
+const KEYWORD_VARIANTS = [
+  ...new Set(
+    CHAPTER_KEYWORDS.flatMap((keyword) => [
+      keyword,
+      keyword.split("-").join(" "),
+    ]),
+  ),
+];
+
+/**
+ * Behaviour that was once user-configurable and is now fixed. Kept named rather than
+ * inlined so the intent stays visible at each use site.
+ */
+const POLICY = {
+  /** Only follow links pointing at the index page's own host. */
+  sameOriginOnly: true,
+  /** Flatten <a> elements inside chapter bodies to plain text. */
+  stripLinks: true,
+} as const;
 
 /** Elements that are chrome rather than story content on a WordPress post. */
 const JUNK_SELECTORS = [
@@ -68,56 +89,48 @@ const ALLOWED_ATTRS: Record<string, string[]> = {
   th: ["colspan", "rowspan"],
 };
 
+/** Containers to look for, most specific first, when locating the story text. */
+const CONTENT_SELECTORS = [
+  "article .entry-content",
+  "article",
+  ".entry-content",
+  ".post-content",
+  "main",
+  "#content",
+];
+
+const TITLE_SELECTORS = [
+  "h1.entry-title",
+  ".entry-title",
+  "article h1",
+  "h1",
+  "title",
+];
+
 const parser = new DOMParser();
 
 export function parseHtml(html: string): Document {
   return parser.parseFromString(html, "text/html");
 }
 
-/** Lowercases and removes Vietnamese diacritics so keyword matching is accent-insensitive. */
-export function normalize(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d");
-}
-
 /** Finds the page's main content container, preferring the semantic <article>. */
 export function findArticle(doc: Document): Element | null {
-  const candidates = [
-    "article .entry-content",
-    "article",
-    ".entry-content",
-    ".post-content",
-    "main",
-    "#content",
-  ];
-
-  for (const selector of candidates) {
+  for (const selector of CONTENT_SELECTORS) {
     const found = doc.querySelector(selector);
-    if (found && found.textContent && found.textContent.trim().length > 0)
-      return found;
+    if (found?.textContent?.trim()) return found;
   }
   return doc.body;
 }
 
 export function extractTitle(doc: Document): string {
-  const selectors = [
-    "h1.entry-title",
-    ".entry-title",
-    "article h1",
-    "h1",
-    "title",
-  ];
-  for (const selector of selectors) {
+  for (const selector of TITLE_SELECTORS) {
     const text = doc.querySelector(selector)?.textContent?.trim();
     if (text) return collapseWhitespace(text);
   }
   return "Untitled";
 }
 
-/** Returns an empty string when the page names no author; callers omit the field entirely. */
+/** Returns an empty string when the page names no author; callers omit the field. */
 export function extractAuthor(doc: Document): string {
   const meta =
     doc.querySelector('meta[name="author"]')?.getAttribute("content") ??
@@ -134,13 +147,9 @@ export function extractLanguage(doc: Document): string {
   return lang ? lang.split("-")[0] : "en";
 }
 
-function collapseWhitespace(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
-}
-
 /**
  * Rewrites relative hrefs/srcs to absolute, strips junk nodes and unknown attributes.
- * Mutates and returns a detached clone — the source document is left untouched.
+ * Returns a detached clone — the source document is left untouched.
  */
 export function cleanContent(
   source: Element,
@@ -192,23 +201,22 @@ export function cleanContent(
 
 function stripAttributes(root: HTMLElement): void {
   const walk = (element: Element) => {
-    const tag = element.tagName.toLowerCase();
-    const allowed = ALLOWED_ATTRS[tag] ?? [];
+    const allowed = ALLOWED_ATTRS[element.tagName.toLowerCase()] ?? [];
     for (const attr of Array.from(element.attributes)) {
       if (!allowed.includes(attr.name)) element.removeAttribute(attr.name);
     }
     Array.from(element.children).forEach(walk);
   };
   Array.from(root.children).forEach(walk);
-  for (const attr of Array.from(root.attributes))
+  for (const attr of Array.from(root.attributes)) {
     root.removeAttribute(attr.name);
+  }
 }
 
 /** Drops paragraphs/divs that hold neither text nor media, a common WP artifact. */
 function removeEmptyBlocks(root: HTMLElement): void {
   root.querySelectorAll("p, div, span, section").forEach((node) => {
-    const hasText =
-      (node.textContent ?? "").replace(/ /g, " ").trim().length > 0;
+    const hasText = (node.textContent ?? "").replace(/ /g, " ").trim();
     const hasMedia = node.querySelector("img, br, hr, table");
     if (!hasText && !hasMedia) node.remove();
   });
@@ -218,14 +226,14 @@ export function resolveUrl(
   href: string | null | undefined,
   baseUrl: string,
 ): string | null {
-  if (!href) return null;
-  const trimmed = href.trim();
+  const trimmed = href?.trim();
   if (
     !trimmed ||
     trimmed.startsWith("#") ||
     /^(javascript|mailto|tel):/i.test(trimmed)
-  )
+  ) {
     return null;
+  }
   try {
     const url = new URL(trimmed, baseUrl);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
@@ -238,7 +246,7 @@ export function resolveUrl(
 
 /** Pulls the first standalone number out of a URL slug or anchor text, for ordering. */
 export function parseChapterNumber(url: string, text: string): number | null {
-  const normalized = normalize(decodeURIComponent(url));
+  const normalized = normalize(safeDecode(url));
   const patterns = [
     /(?:chuong|chapter|chap|phien-ngoai|ngoai-truyen|vi-thanh)[-_\s]*(\d+(?:\.\d+)?)/,
     /\/(\d+(?:\.\d+)?)\/?$/,
@@ -256,8 +264,17 @@ export function parseChapterNumber(url: string, text: string): number | null {
 }
 
 export function isChapterLink(url: string, text: string): boolean {
-  const haystack = `${normalize(decodeURIComponent(url))} ${normalize(text)}`;
-  return CHAPTER_KEYWORDS.some((keyword) => haystack.includes(keyword));
+  const haystack = `${normalize(safeDecode(url))} ${normalize(text)}`;
+  return KEYWORD_VARIANTS.some((keyword) => haystack.includes(keyword));
+}
+
+/** decodeURIComponent throws on malformed escapes, which a stray href can contain. */
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 /**
@@ -267,7 +284,6 @@ export function isChapterLink(url: string, text: string): boolean {
 export function extractChapterLinks(
   article: Element,
   baseUrl: string,
-  sameOriginOnly: boolean,
 ): Chapter[] {
   const origin = safeOrigin(baseUrl);
   const seen = new Set<string>();
@@ -279,8 +295,8 @@ export function extractChapterLinks(
 
     const linkText = collapseWhitespace(anchor.textContent ?? "");
     if (!isChapterLink(url, linkText)) return;
-    if (sameOriginOnly && origin && safeOrigin(url) !== origin) return;
-    // The index page often links to itself from a "table of contents" anchor.
+    if (POLICY.sameOriginOnly && origin && safeOrigin(url) !== origin) return;
+    // The index page often links back to itself from a "table of contents" anchor.
     if (stripTrailingSlash(url) === stripTrailingSlash(baseUrl)) return;
 
     seen.add(url);
@@ -317,26 +333,26 @@ export function sortChapters(chapters: Chapter[]): Chapter[] {
 
 export function countWords(html: string): number {
   const text = parseHtml(`<div>${html}</div>`).body.textContent ?? "";
-  const matches = text.trim().match(/\S+/g);
-  return matches ? matches.length : 0;
+  return text.trim().match(/\S+/g)?.length ?? 0;
 }
 
-/** Parses the index page into story metadata plus its chapter links. */
+/** Parses the index page into story metadata plus its sorted chapter links. */
 export function parseIndexPage(
   html: string,
   finalUrl: string,
-  options: ScrapeOptions,
+  options: CleanOptions,
 ): { meta: StoryMeta; chapters: Chapter[] } {
   const doc = parseHtml(html);
   const article = findArticle(doc);
-  if (!article)
+  if (!article) {
     throw new Error(
       "Không tìm thấy phần nội dung <article> trên trang mục lục.",
     );
+  }
 
-  const chapters = extractChapterLinks(article, finalUrl, FIXED.sameOriginOnly);
+  const chapters = sortChapters(extractChapterLinks(article, finalUrl));
 
-  // The synopsis is the article with the chapter links removed, so the EPUB's
+  // The synopsis is the article with the chapter links removed, so the exported
   // description page isn't just a wall of dead links.
   const description = cleanContent(article, finalUrl, {
     stripImages: options.stripImages,
@@ -344,7 +360,7 @@ export function parseIndexPage(
   });
   description.querySelectorAll("li, p").forEach((node) => {
     const text = collapseWhitespace(node.textContent ?? "");
-    if (text && isChapterLink("", text) && text.length < 120) node.remove();
+    if (text && text.length < 120 && isChapterLink("", text)) node.remove();
   });
   removeEmptyBlocks(description);
 
@@ -364,7 +380,7 @@ export function parseIndexPage(
 export function parseChapterPage(
   html: string,
   finalUrl: string,
-  options: ScrapeOptions,
+  options: CleanOptions,
 ): { title: string; html: string } {
   const doc = parseHtml(html);
   const article = findArticle(doc);
@@ -372,7 +388,7 @@ export function parseChapterPage(
 
   const cleaned = cleanContent(article, finalUrl, {
     stripImages: options.stripImages,
-    stripLinks: FIXED.stripLinks,
+    stripLinks: POLICY.stripLinks,
   });
   const body = cleaned.innerHTML.trim();
   if (!body) throw new Error("Phần tử <article> rỗng sau khi làm sạch.");

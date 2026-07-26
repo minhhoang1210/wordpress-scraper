@@ -1,37 +1,37 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import type { Chapter, ChapterStatus } from '../lib/types'
+import { computed, ref } from "vue";
+import type { Chapter, ChapterStatus } from "../lib/types";
 
-const props = defineProps<{ chapters: Chapter[]; disabled: boolean }>()
-const emit = defineEmits<{ selectAll: [value: boolean] }>()
+const props = defineProps<{ chapters: Chapter[]; disabled: boolean }>();
+const emit = defineEmits<{ selectAll: [value: boolean] }>();
 
-const filter = ref('')
+const filter = ref("");
 
 const visible = computed(() => {
-  const needle = filter.value.trim().toLowerCase()
-  if (!needle) return props.chapters
+  const needle = filter.value.trim().toLowerCase();
+  if (!needle) return props.chapters;
   return props.chapters.filter(
     (chapter) =>
       (chapter.title ?? chapter.linkText).toLowerCase().includes(needle) ||
       chapter.url.toLowerCase().includes(needle),
-  )
-})
+  );
+});
 
 const STATUS_STYLES: Record<ChapterStatus, string> = {
-  pending: 'bg-slate-700/60 text-slate-300',
-  fetching: 'bg-amber-500/20 text-amber-300 animate-pulse',
-  done: 'bg-emerald-500/20 text-emerald-300',
-  failed: 'bg-rose-500/20 text-rose-300',
-  skipped: 'bg-slate-700/40 text-slate-500',
-}
+  pending: "bg-slate-700/60 text-slate-300",
+  fetching: "bg-amber-500/20 text-amber-300 animate-pulse",
+  done: "bg-emerald-500/20 text-emerald-300",
+  failed: "bg-rose-500/20 text-rose-300",
+  skipped: "bg-slate-700/40 text-slate-500",
+};
 
 const STATUS_LABELS: Record<ChapterStatus, string> = {
-  pending: 'chờ',
-  fetching: 'đang tải',
-  done: 'xong',
-  failed: 'lỗi',
-  skipped: 'bỏ qua',
-}
+  pending: "chờ",
+  fetching: "đang tải",
+  done: "xong",
+  failed: "lỗi",
+  skipped: "bỏ qua",
+};
 </script>
 
 <template>
@@ -61,7 +61,9 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
       </button>
     </div>
 
-    <ul class="thin-scroll max-h-96 min-h-24 flex-1 space-y-1 overflow-y-auto pr-1">
+    <ul
+      class="thin-scroll max-h-96 min-h-24 flex-1 space-y-1 overflow-y-auto pr-1"
+    >
       <li
         v-for="chapter in visible"
         :key="chapter.id"
@@ -74,8 +76,14 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
           :disabled="disabled"
         />
         <div class="min-w-0 flex-1">
-          <p class="truncate text-sm text-slate-200" :title="chapter.title ?? chapter.linkText">
-            <span v-if="chapter.order !== null" class="mr-1.5 text-xs text-indigo-400">
+          <p
+            class="truncate text-sm text-slate-200"
+            :title="chapter.title ?? chapter.linkText"
+          >
+            <span
+              v-if="chapter.order !== null"
+              class="mr-1.5 text-xs text-indigo-400"
+            >
               #{{ chapter.order }}
             </span>
             {{ chapter.title ?? chapter.linkText }}
@@ -88,7 +96,7 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
           v-if="chapter.wordCount"
           class="shrink-0 text-xs tabular-nums text-slate-500"
         >
-          {{ chapter.wordCount.toLocaleString('vi-VN') }} từ
+          {{ chapter.wordCount.toLocaleString("vi-VN") }} từ
         </span>
         <span
           class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
@@ -97,7 +105,10 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
           {{ STATUS_LABELS[chapter.status] }}
         </span>
       </li>
-      <li v-if="visible.length === 0" class="px-3 py-6 text-center text-sm text-slate-500">
+      <li
+        v-if="visible.length === 0"
+        class="px-3 py-6 text-center text-sm text-slate-500"
+      >
         Không có chương nào.
       </li>
     </ul>

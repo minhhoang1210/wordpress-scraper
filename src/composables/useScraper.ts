@@ -1,28 +1,20 @@
 import { computed, reactive, ref, shallowRef } from "vue";
 import { fetchBinary, fetchPage } from "../lib/fetcher";
-import {
-  parseChapterPage,
-  parseIndexPage,
-  sortChapters,
-  countWords,
-} from "../lib/parser";
+import { countWords, parseChapterPage, parseIndexPage } from "../lib/parser";
 import { buildEpub } from "../lib/epub";
 import { buildPdf, type PageSize } from "../lib/pdf";
-import {
-  FIXED,
-  type Chapter,
-  type LogEntry,
-  type ScrapeOptions,
-  type StoryMeta,
-} from "../lib/types";
+import { runPool } from "../lib/async";
+import { downloadBlob } from "../lib/download";
+import { errorMessage, formatBytes, isAbortError, slugify } from "../lib/text";
+import type { Chapter, LogEntry, ScrapeOptions, StoryMeta } from "../lib/types";
 
 export type Phase =
-  | "idle"
-  | "indexing"
-  | "ready"
-  | "scraping"
-  | "done"
-  | "error";
+  "idle" | "indexing" | "ready" | "scraping" | "done" | "error";
+
+export type ExportFormat = "epub" | "pdf";
+
+/** Oldest entries are dropped once the log passes this length. */
+const MAX_LOG_ENTRIES = 500;
 
 export function useScraper() {
   const indexUrl = ref("");
@@ -30,9 +22,9 @@ export function useScraper() {
   const meta = shallowRef<StoryMeta | null>(null);
   const chapters = ref<Chapter[]>([]);
   const logs = ref<LogEntry[]>([]);
-  const errorMessage = ref("");
+  const errorText = ref("");
   const busyMessage = ref("");
-  const exporting = ref<"epub" | "pdf" | null>(null);
+  const exporting = ref<ExportFormat | null>(null);
 
   const options = reactive<ScrapeOptions>({
     stripImages: false,
@@ -51,42 +43,53 @@ export function useScraper() {
 
   function log(level: LogEntry["level"], message: string) {
     logs.value.push({ id: logId++, at: Date.now(), level, message });
-    if (logs.value.length > 500) logs.value.splice(0, logs.value.length - 500);
+    if (logs.value.length > MAX_LOG_ENTRIES) {
+      logs.value.splice(0, logs.value.length - MAX_LOG_ENTRIES);
+    }
   }
 
-  const selected = computed(() =>
-    chapters.value.filter((chapter) => chapter.selected),
-  );
-  const fetched = computed(() =>
-    chapters.value.filter((chapter) => chapter.status === "done"),
-  );
-  const failed = computed(() =>
-    chapters.value.filter((chapter) => chapter.status === "failed"),
-  );
+  const byStatus = (status: Chapter["status"]) =>
+    computed(() => chapters.value.filter((c) => c.status === status));
+
+  const selected = computed(() => chapters.value.filter((c) => c.selected));
+  const fetched = byStatus("done");
+  const failed = byStatus("failed");
+
   const totalWords = computed(() =>
     fetched.value.reduce((sum, chapter) => sum + (chapter.wordCount ?? 0), 0),
   );
+
   const progress = computed(() => {
     const total = selected.value.length;
     if (total === 0) return 0;
     const settled = selected.value.filter(
-      (chapter) => chapter.status === "done" || chapter.status === "failed",
+      (c) => c.status === "done" || c.status === "failed",
     ).length;
     return Math.round((settled / total) * 100);
   });
+
+  const busy = computed(
+    () => phase.value === "indexing" || phase.value === "scraping",
+  );
   const canExport = computed(
     () => fetched.value.length > 0 && !exporting.value,
   );
+
+  /** Starts a fresh abort scope, cancelling anything still running. */
+  function restartController(): AbortSignal {
+    controller?.abort();
+    controller = new AbortController();
+    return controller.signal;
+  }
 
   /** Bước 1 — đọc trang mục lục và liệt kê các liên kết chương. */
   async function loadIndex() {
     const target = indexUrl.value.trim();
     if (!target) return;
 
-    controller?.abort();
-    controller = new AbortController();
+    const signal = restartController();
     phase.value = "indexing";
-    errorMessage.value = "";
+    errorText.value = "";
     busyMessage.value = "Đang tải trang mục lục…";
     meta.value = null;
     chapters.value = [];
@@ -94,7 +97,7 @@ export function useScraper() {
     try {
       const { html, finalUrl } = await fetchPage(target, {
         retries: options.retries,
-        signal: controller.signal,
+        signal,
         onRetry: (attempt, error) =>
           log("warn", `Thử lại trang mục lục lần ${attempt}: ${error.message}`),
       });
@@ -105,26 +108,22 @@ export function useScraper() {
 
       const parsed = parseIndexPage(html, finalUrl, options);
       meta.value = parsed.meta;
-      chapters.value = FIXED.sortByNumber
-        ? sortChapters(parsed.chapters)
-        : parsed.chapters;
+      chapters.value = parsed.chapters;
+      phase.value = "ready";
 
       if (parsed.chapters.length === 0) {
         log(
           "warn",
           "Không tìm thấy liên kết chương nào phù hợp trên trang này.",
         );
-        phase.value = "ready";
         return;
       }
-
       log(
         "success",
         `Tìm thấy ${parsed.chapters.length} chương trong “${parsed.meta.title}”.`,
       );
-      phase.value = "ready";
     } catch (error) {
-      handleFailure(error, "Không tải được trang mục lục.");
+      fail(error, "Không tải được trang mục lục.");
     } finally {
       busyMessage.value = "";
     }
@@ -132,50 +131,38 @@ export function useScraper() {
 
   /** Bước 2 — tải từng chương đã chọn, giới hạn số yêu cầu song song. */
   async function scrapeChapters(only?: Chapter[]) {
-    const queue = (only ?? selected.value).filter(
-      (chapter) => chapter.status !== "done",
-    );
+    const queue = (only ?? selected.value).filter((c) => c.status !== "done");
     if (queue.length === 0) return;
 
-    controller?.abort();
-    controller = new AbortController();
-    const signal = controller.signal;
-
+    const signal = restartController();
     phase.value = "scraping";
-    errorMessage.value = "";
+    errorText.value = "";
     queue.forEach((chapter) => {
       chapter.status = "pending";
       chapter.error = undefined;
     });
 
-    let cursor = 0;
-    const workers = Array.from(
-      { length: Math.max(1, options.concurrency) },
-      async () => {
-        while (cursor < queue.length) {
-          if (signal.aborted) return;
-          const chapter = queue[cursor++];
-          await scrapeOne(chapter, signal);
-          if (options.delayMs > 0)
-            await new Promise((r) => setTimeout(r, options.delayMs));
-        }
-      },
-    );
-
     try {
-      await Promise.all(workers);
+      await runPool(queue, (chapter) => scrapeOne(chapter, signal), {
+        concurrency: options.concurrency,
+        delayMs: options.delayMs,
+        signal,
+      });
+
       if (signal.aborted) {
         log("warn", "Đã huỷ quá trình tải.");
         phase.value = "ready";
         return;
       }
+
       phase.value = "done";
       log(
         failed.value.length > 0 ? "warn" : "success",
-        `Tải hoàn tất — ${fetched.value.length} chương, ${failed.value.length} lỗi, ${totalWords.value.toLocaleString("vi-VN")} từ.`,
+        `Tải hoàn tất — ${fetched.value.length} chương, ${failed.value.length} lỗi, ` +
+          `${totalWords.value.toLocaleString("vi-VN")} từ.`,
       );
     } catch (error) {
-      handleFailure(error, "Quá trình tải bị dừng đột ngột.");
+      fail(error, "Quá trình tải bị dừng đột ngột.");
     }
   }
 
@@ -197,19 +184,18 @@ export function useScraper() {
       chapter.wordCount = countWords(parsed.html);
       chapter.status = "done";
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
+      // A cancelled chapter goes back in the queue rather than counting as a failure.
+      if (isAbortError(error)) {
         chapter.status = "pending";
         return;
       }
       chapter.status = "failed";
-      chapter.error = error instanceof Error ? error.message : String(error);
+      chapter.error = errorMessage(error);
       log("error", `${chapter.linkText}: ${chapter.error}`);
     }
   }
 
-  function retryFailed() {
-    return scrapeChapters(failed.value);
-  }
+  const retryFailed = () => scrapeChapters(failed.value);
 
   function cancel() {
     controller?.abort();
@@ -217,68 +203,69 @@ export function useScraper() {
     busyMessage.value = "";
   }
 
-  async function exportEpub() {
+  /**
+   * Bước 3 — dựng tệp tải về. Both exporters share the same hook shape, so the
+   * bookkeeping around them is identical.
+   */
+  async function runExport(
+    format: ExportFormat,
+    build: (meta: StoryMeta, chapters: Chapter[]) => Promise<Blob>,
+  ) {
     if (!meta.value || fetched.value.length === 0) return;
-    exporting.value = "epub";
-    busyMessage.value = "Đang tạo EPUB…";
+
+    exporting.value = format;
+    errorText.value = "";
+    busyMessage.value = `Đang chuẩn bị ${format.toUpperCase()}…`;
 
     try {
-      const blob = await buildEpub(meta.value, fetched.value, {
-        // Images are embedded whenever the user has not chosen to remove them.
-        fetchImage: options.stripImages ? undefined : (url) => fetchBinary(url),
-        onProgress: (message) => log("warn", message),
-      });
-      download(blob, `${slugify(meta.value.title)}.epub`);
-      log("success", `EPUB đã sẵn sàng (${formatBytes(blob.size)}).`);
+      const blob = await build(meta.value, fetched.value);
+      downloadBlob(blob, `${slugify(meta.value.title)}.${format}`);
+      log(
+        "success",
+        `${format.toUpperCase()} đã sẵn sàng (${formatBytes(blob.size)}).`,
+      );
     } catch (error) {
-      handleExportFailure(error, "EPUB");
+      errorText.value = `Tạo ${format.toUpperCase()} thất bại: ${errorMessage(error)}`;
+      log("error", errorText.value);
     } finally {
       exporting.value = null;
       busyMessage.value = "";
     }
   }
 
-  async function exportPdf() {
-    if (!meta.value || fetched.value.length === 0) return;
-    exporting.value = "pdf";
-    busyMessage.value = "Đang nhúng phông chữ…";
+  /** Shared by both exporters: embed images unless the user asked to drop them. */
+  const exportHooks = () => ({
+    fetchImage: options.stripImages
+      ? undefined
+      : (url: string) => fetchBinary(url),
+    onStatus: (message: string) => {
+      busyMessage.value = message;
+    },
+    onWarning: (message: string) => log("warn", message),
+  });
 
-    try {
-      const blob = await buildPdf(meta.value, fetched.value, {
+  const exportEpub = () =>
+    runExport("epub", (meta, chapters) =>
+      buildEpub(meta, chapters, exportHooks()),
+    );
+
+  const exportPdf = () =>
+    runExport("pdf", (meta, chapters) =>
+      buildPdf(meta, chapters, {
+        ...exportHooks(),
         pageSize: pdfOptions.pageSize,
         fontSize: pdfOptions.fontSize,
-        // Images are embedded whenever the user has not chosen to remove them.
-        fetchImage: options.stripImages ? undefined : (url) => fetchBinary(url),
-        onStatus: (message) => {
-          busyMessage.value = message;
-        },
-        onWarning: (message) => log("warn", message),
-      });
-      download(blob, `${slugify(meta.value.title)}.pdf`);
-      log("success", `PDF đã sẵn sàng (${formatBytes(blob.size)}).`);
-    } catch (error) {
-      handleExportFailure(error, "PDF");
-    } finally {
-      exporting.value = null;
-      busyMessage.value = "";
-    }
-  }
+      }),
+    );
 
-  function handleFailure(error: unknown, fallback: string) {
-    if (error instanceof DOMException && error.name === "AbortError") {
+  function fail(error: unknown, fallback: string) {
+    if (isAbortError(error)) {
       phase.value = "idle";
       return;
     }
-    const message = error instanceof Error ? error.message : String(error);
-    errorMessage.value = `${fallback} ${message}`;
-    log("error", errorMessage.value);
+    errorText.value = `${fallback} ${errorMessage(error)}`;
+    log("error", errorText.value);
     phase.value = "error";
-  }
-
-  function handleExportFailure(error: unknown, format: string) {
-    const message = error instanceof Error ? error.message : String(error);
-    errorMessage.value = `Tạo ${format} thất bại: ${message}`;
-    log("error", errorMessage.value);
   }
 
   function selectAll(value: boolean) {
@@ -286,22 +273,26 @@ export function useScraper() {
   }
 
   return {
+    // state
     indexUrl,
     phase,
     meta,
     chapters,
     logs,
-    errorMessage,
+    errorText,
     busyMessage,
     exporting,
     options,
     pdfOptions,
+    // derived
     selected,
     fetched,
     failed,
     totalWords,
     progress,
+    busy,
     canExport,
+    // actions
     loadIndex,
     scrapeChapters,
     retryFailed,
@@ -310,34 +301,4 @@ export function useScraper() {
     exportPdf,
     selectAll,
   };
-}
-
-function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
-
-export function slugify(value: string): string {
-  return (
-    value
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/đ/gi, "d")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 80) || "truyen"
-  );
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
