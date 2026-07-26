@@ -35,9 +35,41 @@ It identifies itself honestly as `wordpress-scraper/1.0`. Spoofing a Chrome user
 makes WordPress.com's bot protection reply `403` — a browser UA arriving over a
 non-browser TLS handshake looks worse than an unremarkable client.
 
-Because every request goes through this middleware, the app has to be served by
-`npm run dev` or `npm run preview`. A purely static deploy of `dist/` has no proxy and
-every fetch will fail on CORS.
+The handler lives in [`api/fetch.ts`](api/fetch.ts) and is the only implementation:
+Vercel picks it up automatically as a serverless function at `/api/fetch`, while
+[`server/proxy.ts`](server/proxy.ts) mounts the same `handle` function as Vite
+middleware for local work. It has no relative imports so nothing needs resolving at
+deploy time.
+
+Because every request goes through it, the app cannot be hosted as pure static files —
+it needs either the Vite server or a platform that runs the function.
+
+## Deploying to Vercel
+
+Push the repo to GitHub, then **Add New → Project** in Vercel and import it. The Vite
+preset is detected automatically; [`vercel.json`](vercel.json) pins the build command,
+output directory and the function's `maxDuration`. Or from the CLI:
+
+```bash
+npx vercel
+```
+
+No environment variables are needed. Vercel builds on Node 22, which satisfies Vite 8
+(your local Node 20.15 only produces a warning).
+
+Worth knowing before you deploy:
+
+- **The proxy becomes public.** Anyone who finds the URL can use `/api/fetch` to fetch
+  arbitrary public pages through your account. Private and loopback hosts are already
+  refused, but if that matters, turn on Vercel **Deployment Protection**, or restrict
+  the function to specific hostnames.
+- **One function call per chapter.** An 87-chapter story is 87 invocations plus one for
+  the index, which counts against the Hobby plan's free allowance.
+- **4.5 MB response cap** on serverless functions. Chapter HTML is far below it; a very
+  large embedded image would fail, and that image is skipped rather than breaking the
+  book.
+- If a deploy rejects `maxDuration: 30`, delete the `functions` block from
+  `vercel.json` and the platform default applies.
 
 ## Fixed behaviour
 
@@ -71,7 +103,8 @@ of the initial bundle.
 
 | Path | Role |
 | --- | --- |
-| `server/proxy.ts` | Dev/preview CORS passthrough |
+| `api/fetch.ts` | CORS passthrough — Vercel function and local middleware |
+| `server/proxy.ts` | Mounts `api/fetch.ts` on the Vite dev/preview server |
 | `src/lib/fetcher.ts` | Proxy requests, retries with backoff |
 | `src/lib/parser.ts` | `<article>` extraction, chapter-link detection, sanitising |
 | `src/lib/epub.ts` | EPUB 3 packaging |
