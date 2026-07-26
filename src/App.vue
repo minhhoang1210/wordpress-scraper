@@ -40,7 +40,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
           v-model="s.indexUrl.value"
           type="url"
           required
-          placeholder="https://vidu.wordpress.com/ten-truyen/"
+          placeholder="https://ten-mien.wordpress.com/ten-truyen/"
           class="flex-1 rounded-lg border border-white/10 bg-ink-950 px-4 py-2.5 text-sm outline-none focus:border-indigo-400"
           :disabled="busy"
         />
@@ -182,7 +182,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !busy.value);
       </p>
       <p class="mt-3 text-xs text-slate-500">
         Cả hai bản đều mở đầu bằng nội dung trang mục lục, sau đó tới từng
-        chương. Hình ảnh chỉ có trong EPUB.
+        chương.
       </p>
     </PanelSection>
 

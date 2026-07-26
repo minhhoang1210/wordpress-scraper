@@ -247,9 +247,12 @@ export function useScraper() {
       const blob = await buildPdf(meta.value, fetched.value, {
         pageSize: pdfOptions.pageSize,
         fontSize: pdfOptions.fontSize,
-        onProgress: (done, total) => {
-          busyMessage.value = `Đang dàn trang ${done}/${total}…`;
+        // Images are embedded whenever the user has not chosen to remove them.
+        fetchImage: options.stripImages ? undefined : (url) => fetchBinary(url),
+        onStatus: (message) => {
+          busyMessage.value = message;
         },
+        onWarning: (message) => log("warn", message),
       });
       download(blob, `${slugify(meta.value.title)}.pdf`);
       log("success", `PDF đã sẵn sàng (${formatBytes(blob.size)}).`);

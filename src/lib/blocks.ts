@@ -1,10 +1,19 @@
 import { parseHtml } from './parser'
 
-export type BlockType = 'heading' | 'subheading' | 'paragraph' | 'quote' | 'list' | 'rule'
+export type BlockType =
+  | 'heading'
+  | 'subheading'
+  | 'paragraph'
+  | 'quote'
+  | 'list'
+  | 'rule'
+  | 'image'
 
 export interface Block {
   type: BlockType
   text: string
+  /** Absolute image URL; set only on `image` blocks. */
+  src?: string
 }
 
 const HEADING_TAGS = new Set(['H1', 'H2'])
@@ -31,6 +40,14 @@ export function htmlToBlocks(html: string): Block[] {
     }
   }
 
+  const pushImage = (element: Element) => {
+    const src = element.getAttribute('src')
+    // Only absolute http(s) sources are fetchable; parser.ts already resolved them.
+    if (src && /^https?:/i.test(src)) {
+      blocks.push({ type: 'image', text: element.getAttribute('alt') ?? '', src })
+    }
+  }
+
   const walk = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       // Loose text between block elements still belongs in the output.
@@ -47,8 +64,15 @@ export function htmlToBlocks(html: string): Block[] {
     if (SUBHEADING_TAGS.has(tag)) return push('subheading', element.textContent ?? '')
     if (tag === 'BLOCKQUOTE') return push('quote', element.textContent ?? '')
     if (tag === 'LI') return push('list', element.textContent ?? '')
-    if (tag === 'P') return pushWithLineBreaks(element, push)
-    if (tag === 'IMG' || tag === 'FIGURE') return
+    // WordPress usually wraps illustrations in a <p>; recurse so the image survives
+    // instead of being flattened to its (empty) text content.
+    if (tag === 'P') {
+      if (element.querySelector('img')) return Array.from(element.childNodes).forEach(walk)
+      return pushWithLineBreaks(element, push)
+    }
+    if (tag === 'IMG') return pushImage(element)
+    // FIGURE falls through to the container branch so its <img> and <figcaption>
+    // are both picked up.
 
     // Containers (div, section, ul, ol, table…) recurse; leaf inline content is
     // gathered as a paragraph so nothing is silently dropped.
@@ -78,8 +102,4 @@ function tidy(value: string): string {
     .replace(/ /g, ' ')
     .replace(/[ \t]+/g, ' ')
     .trim()
-}
-
-export function blocksToPlainText(blocks: Block[]): string {
-  return blocks.map((block) => (block.type === 'rule' ? '* * *' : block.text)).join('\n\n')
 }

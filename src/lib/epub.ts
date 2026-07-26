@@ -114,11 +114,18 @@ export async function buildEpub(
   }
 
   // ---- Title / synopsis page --------------------------------------------
+  // The synopsis needs the same image embedding as a chapter body, otherwise its
+  // illustrations stay as remote URLs and break when the book is read offline.
+  let synopsis = meta.descriptionHtml ? toXhtmlFragment(meta.descriptionHtml) : ''
+  if (synopsis && options.fetchImage) {
+    synopsis = await embedImages(synopsis, images, options)
+  }
+
   const titleBody = [
     `    <h1>${escapeXml(meta.title)}</h1>`,
     meta.author ? `    <p class="meta">${escapeXml(meta.author)}</p>` : '',
-    meta.descriptionHtml ? toXhtmlFragment(meta.descriptionHtml) : '',
-    `    <p class="source">Source: <a href="${escapeXml(meta.sourceUrl)}">${escapeXml(meta.sourceUrl)}</a></p>`,
+    synopsis,
+    `    <p class="source">Nguồn: <a href="${escapeXml(meta.sourceUrl)}">${escapeXml(meta.sourceUrl)}</a></p>`,
   ]
     .filter(Boolean)
     .join('\n')

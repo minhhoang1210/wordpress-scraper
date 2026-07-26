@@ -7,7 +7,23 @@ export type PageSize = 'a4' | 'a5' | 'letter'
 export interface PdfOptions {
   pageSize: PageSize
   fontSize: number
-  onProgress?: (done: number, total: number) => void
+  /** Supplies image bytes through the proxy; omit to build a text-only PDF. */
+  fetchImage?: (url: string) => Promise<{ data: Uint8Array; mimeType: string }>
+  onStatus?: (message: string) => void
+  onWarning?: (message: string) => void
+}
+
+/** Longest edge, in pixels, that an embedded image is downscaled to. */
+const MAX_IMAGE_EDGE = 1400
+/** CSS pixels are 1/96 in and PDF points 1/72 in, so pixels map to points at 0.75. */
+const PX_TO_PT = 0.75
+/** Parallel image downloads during the preload phase. */
+const IMAGE_CONCURRENCY = 4
+
+interface LoadedImage {
+  dataUrl: string
+  width: number
+  height: number
 }
 
 const FONT_FAMILY = 'NotoSans'
@@ -93,16 +109,20 @@ export async function buildPdf(
 
   // The index page's own text becomes the first section, so the PDF opens with the
   // synopsis just as the EPUB does. It is listed in the contents like a chapter.
-  const sections: { title: string; html: string }[] = []
+  const sections: { title: string; blocks: Block[] }[] = []
   if (meta.descriptionHtml.trim()) {
-    sections.push({ title: 'Giới thiệu', html: meta.descriptionHtml })
+    sections.push({ title: 'Giới thiệu', blocks: htmlToBlocks(meta.descriptionHtml) })
   }
   chapters.forEach((chapter, index) => {
     sections.push({
       title: chapter.title || chapter.linkText || `Chương ${index + 1}`,
-      html: chapter.html ?? '',
+      blocks: htmlToBlocks(chapter.html ?? ''),
     })
   })
+
+  // Images must be fetched and decoded up front, because the layout pass below is
+  // synchronous and needs their pixel dimensions to reserve the right space.
+  const images = await preloadImages(sections, options)
 
   // ---- Pass 1: section bodies, recording where each one starts ------------
   const startPages: number[] = []
@@ -121,11 +141,11 @@ export async function buildPdf(
     }
     cursor += leading * 0.6
 
-    for (const block of htmlToBlocks(section.html)) {
-      cursor = drawBlock(doc, block, cursor, layout, body, leading)
+    for (const block of section.blocks) {
+      cursor = drawBlock(doc, block, cursor, layout, body, leading, images)
     }
 
-    options.onProgress?.(index + 1, sections.length)
+    options.onStatus?.(`Đang dàn trang ${index + 1}/${sections.length}…`)
   })
 
   const bodyPages = doc.getNumberOfPages()
@@ -155,6 +175,124 @@ export async function buildPdf(
   return doc.output('blob')
 }
 
+/**
+ * Downloads every distinct image referenced by the sections and decodes it to a JPEG
+ * data URL. Failures are reported and skipped — a missing illustration must never
+ * abort the whole export.
+ */
+async function preloadImages(
+  sections: { blocks: Block[] }[],
+  options: PdfOptions,
+): Promise<Map<string, LoadedImage>> {
+  const loaded = new Map<string, LoadedImage>()
+  if (!options.fetchImage) return loaded
+
+  const urls = [
+    ...new Set(
+      sections.flatMap((section) =>
+        section.blocks.filter((block) => block.type === 'image').map((block) => block.src!),
+      ),
+    ),
+  ]
+  if (urls.length === 0) return loaded
+
+  let done = 0
+  let cursor = 0
+
+  const workers = Array.from({ length: IMAGE_CONCURRENCY }, async () => {
+    while (cursor < urls.length) {
+      const url = urls[cursor++]
+      try {
+        const image = await decodeImage(url, options.fetchImage!)
+        if (image) loaded.set(url, image)
+        else options.onWarning?.(`Bỏ qua ảnh (không giải mã được): ${url}`)
+      } catch (error) {
+        options.onWarning?.(
+          `Bỏ qua ảnh ${url}: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+      options.onStatus?.(`Đang tải ảnh ${++done}/${urls.length}…`)
+    }
+  })
+
+  await Promise.all(workers)
+  return loaded
+}
+
+/** Rasterises arbitrary image bytes (PNG/WebP/GIF/JPEG) to a JPEG jsPDF can embed. */
+async function decodeImage(
+  url: string,
+  fetchImage: NonNullable<PdfOptions['fetchImage']>,
+): Promise<LoadedImage | null> {
+  const { data, mimeType } = await fetchImage(url)
+  const objectUrl = URL.createObjectURL(new Blob([data as BlobPart], { type: mimeType }))
+
+  try {
+    const element = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('trình duyệt không đọc được ảnh'))
+      img.src = objectUrl
+    })
+
+    const { naturalWidth: nw, naturalHeight: nh } = element
+    if (!nw || !nh) return null
+
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(nw, nh))
+    const width = Math.max(1, Math.round(nw * scale))
+    const height = Math.max(1, Math.round(nh * scale))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    // JPEG has no alpha, so transparent areas would come out black without this.
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+    ctx.drawImage(element, 0, 0, width, height)
+
+    return { dataUrl: canvas.toDataURL('image/jpeg', 0.82), width, height }
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
+/** Centres an image, scaling it to the text column and breaking the page if needed. */
+function drawImage(
+  doc: jsPDF,
+  block: Block,
+  cursor: number,
+  layout: Layout,
+  leading: number,
+  images: Map<string, LoadedImage>,
+): number {
+  const image = block.src ? images.get(block.src) : undefined
+  if (!image) return cursor
+
+  const maxHeight = layout.height - layout.marginTop - layout.marginBottom
+
+  let width = Math.min(layout.textWidth, image.width * PX_TO_PT)
+  let height = (width * image.height) / image.width
+
+  // Never let a tall image exceed one full page.
+  if (height > maxHeight) {
+    height = maxHeight
+    width = (height * image.width) / image.height
+  }
+
+  if (cursor + height > layout.height - layout.marginBottom) {
+    doc.addPage()
+    cursor = layout.marginTop
+  }
+
+  const x = layout.marginX + (layout.textWidth - width) / 2
+  doc.addImage(image.dataUrl, 'JPEG', x, cursor, width, height)
+
+  return cursor + height + leading * 0.5
+}
+
 function ensureRoom(doc: jsPDF, cursor: number, needed: number, layout: Layout): number {
   if (cursor + needed > layout.height - layout.marginBottom) {
     doc.addPage()
@@ -170,7 +308,12 @@ function drawBlock(
   layout: Layout,
   body: number,
   leading: number,
+  images: Map<string, LoadedImage>,
 ): number {
+  if (block.type === 'image') {
+    return drawImage(doc, block, cursor, layout, leading, images)
+  }
+
   if (block.type === 'rule') {
     cursor = ensureRoom(doc, cursor, leading, layout)
     doc.setDrawColor(170)
