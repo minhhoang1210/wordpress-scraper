@@ -4,13 +4,13 @@ defineProps<{ title: string; subtitle?: string }>();
 
 <template>
   <section
-    class="rounded-xl border border-white/10 bg-ink-900/60 p-5 shadow-lg shadow-black/20"
+    class="rounded-xl border border-app-border bg-app-panel p-5 shadow-lg shadow-app-shadow"
   >
     <header class="mb-4">
-      <h2 class="text-sm font-semibold tracking-wide text-slate-100 uppercase">
+      <h2 class="text-sm font-semibold tracking-wide text-app-strong uppercase">
         {{ title }}
       </h2>
-      <p v-if="subtitle" class="mt-1 text-xs text-slate-400">{{ subtitle }}</p>
+      <p v-if="subtitle" class="mt-1 text-xs text-app-muted">{{ subtitle }}</p>
     </header>
     <slot />
   </section>

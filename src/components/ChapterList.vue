@@ -18,11 +18,13 @@ const visible = computed(() => {
 });
 
 const STATUS_STYLES: Record<ChapterStatus, string> = {
-  pending: "bg-slate-700/60 text-slate-300",
-  fetching: "bg-amber-500/20 text-amber-300 animate-pulse",
-  done: "bg-emerald-500/20 text-emerald-300",
-  failed: "bg-rose-500/20 text-rose-300",
-  skipped: "bg-slate-700/40 text-slate-500",
+  pending:
+    "bg-slate-400/20 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300",
+  fetching: "bg-amber-500/20 text-amber-700 animate-pulse dark:text-amber-300",
+  done: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300",
+  failed: "bg-rose-500/20 text-rose-700 dark:text-rose-300",
+  skipped:
+    "bg-slate-400/20 text-slate-500 dark:bg-slate-700/40 dark:text-slate-500",
 };
 
 const STATUS_LABELS: Record<ChapterStatus, string> = {
@@ -41,11 +43,11 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
         v-model="filter"
         type="search"
         placeholder="Lọc chương…"
-        class="min-w-40 flex-1 rounded-lg border border-white/10 bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-indigo-400"
+        class="min-w-40 flex-1 rounded-lg border border-app-border bg-app-panel-alt px-3 py-1.5 text-sm outline-none focus:border-indigo-400"
       />
       <button
         type="button"
-        class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-40"
+        class="rounded-lg border border-app-border px-3 py-1.5 text-xs text-app-text hover:bg-app-hover disabled:opacity-40"
         :disabled="disabled"
         @click="emit('selectAll', true)"
       >
@@ -53,7 +55,7 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
       </button>
       <button
         type="button"
-        class="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-40"
+        class="rounded-lg border border-app-border px-3 py-1.5 text-xs text-app-text hover:bg-app-hover disabled:opacity-40"
         :disabled="disabled"
         @click="emit('selectAll', false)"
       >
@@ -67,7 +69,7 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
       <li
         v-for="chapter in visible"
         :key="chapter.id"
-        class="flex items-center gap-3 rounded-lg border border-transparent bg-ink-950/60 px-3 py-2 hover:border-white/10"
+        class="flex items-center gap-3 rounded-lg border border-transparent bg-app-panel-alt px-3 py-2 hover:border-app-border"
       >
         <input
           v-model="chapter.selected"
@@ -77,24 +79,38 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
         />
         <div class="min-w-0 flex-1">
           <p
-            class="truncate text-sm text-slate-200"
+            class="truncate text-sm text-app-text"
             :title="chapter.title ?? chapter.linkText"
           >
             <span
               v-if="chapter.order !== null"
-              class="mr-1.5 text-xs text-indigo-400"
+              class="mr-1.5 text-xs text-indigo-500 dark:text-indigo-400"
             >
               #{{ chapter.order }}
             </span>
+            <svg
+              v-if="chapter.protected"
+              class="mr-1 inline size-3.5 -translate-y-px shrink-0 text-app-muted"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-label="Chương yêu cầu mật khẩu"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
             {{ chapter.title ?? chapter.linkText }}
           </p>
-          <p class="truncate text-xs text-slate-500" :title="chapter.url">
+          <p class="truncate text-xs text-app-faint" :title="chapter.url">
             {{ chapter.error ?? chapter.url }}
           </p>
         </div>
         <span
           v-if="chapter.wordCount"
-          class="shrink-0 text-xs tabular-nums text-slate-500"
+          class="shrink-0 text-xs tabular-nums text-app-faint"
         >
           {{ chapter.wordCount.toLocaleString("vi-VN") }} từ
         </span>
@@ -102,12 +118,12 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
           class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
           :class="STATUS_STYLES[chapter.status]"
         >
-          {{ STATUS_LABELS[chapter.status] }}
+          {{ chapter.protected ? "khoá" : STATUS_LABELS[chapter.status] }}
         </span>
       </li>
       <li
         v-if="visible.length === 0"
-        class="px-3 py-6 text-center text-sm text-slate-500"
+        class="px-3 py-6 text-center text-sm text-app-faint"
       >
         Không có chương nào.
       </li>

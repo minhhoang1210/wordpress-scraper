@@ -1,5 +1,65 @@
 @import "tailwindcss";
 
+/* Dark mode is driven by a .dark class on <html>, toggled by the theme switch. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Semantic surface/text tokens. :root carries the light theme, .dark the dark
+ * theme; the app-* utilities resolve through these variables at runtime, so one
+ * set of classes (bg-app-panel, text-app-muted, …) serves both modes.
+ */
+:root {
+  --app-bg: oklch(0.984 0.003 247.858);
+  --app-panel: oklch(1 0 0);
+  --app-panel-alt: oklch(0.968 0.007 247.896);
+  --app-strong: oklch(0.208 0.042 265.755);
+  --app-text: oklch(0.372 0.044 257.287);
+  --app-muted: oklch(0.554 0.046 257.417);
+  --app-faint: oklch(0.704 0.04 256.788);
+  --app-border: oklch(0.929 0.013 255.508);
+  --app-border-strong: oklch(0.84 0.007 247.9);
+  --app-hover: rgba(15, 23, 42, 0.05);
+  --app-track: rgba(15, 23, 42, 0.1);
+  --app-shadow: rgba(15, 23, 42, 0.06);
+  --app-scroll: oklch(0.84 0.007 247.9);
+}
+
+.dark {
+  --app-bg: oklch(0.16 0.02 265);
+  --app-panel: oklch(0.2 0.02 265);
+  --app-panel-alt: oklch(0.17 0.02 265);
+  --app-strong: oklch(1 0 0);
+  --app-text: oklch(0.84 0.007 247.9);
+  --app-muted: oklch(0.704 0.04 256.788);
+  --app-faint: oklch(0.554 0.046 257.417);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-border-strong: rgba(255, 255, 255, 0.15);
+  --app-hover: rgba(255, 255, 255, 0.05);
+  --app-track: rgba(255, 255, 255, 0.1);
+  --app-shadow: rgba(0, 0, 0, 0.2);
+  --app-scroll: oklch(0.372 0.044 257.287);
+}
+
+/*
+ * `inline` makes the utilities reference the mode variables directly (instead of
+ * a @theme constant), so the class on <html> flips every app-* colour.
+ */
+@theme inline {
+  --color-app-bg: var(--app-bg);
+  --color-app-panel: var(--app-panel);
+  --color-app-panel-alt: var(--app-panel-alt);
+  --color-app-strong: var(--app-strong);
+  --color-app-text: var(--app-text);
+  --color-app-muted: var(--app-muted);
+  --color-app-faint: var(--app-faint);
+  --color-app-border: var(--app-border);
+  --color-app-border-strong: var(--app-border-strong);
+  --color-app-hover: var(--app-hover);
+  --color-app-track: var(--app-track);
+  --color-app-shadow: var(--app-shadow);
+  --color-app-scroll: var(--app-scroll);
+}
+
 @theme {
   --color-ink-800: oklch(0.27 0.02 265);
   --color-ink-900: oklch(0.21 0.02 265);
@@ -7,11 +67,14 @@
 }
 
 html {
+  color-scheme: light;
+}
+html.dark {
   color-scheme: dark;
 }
 
 body {
-  @apply bg-ink-950 text-slate-300 antialiased;
+  @apply bg-app-bg text-app-text antialiased;
   margin: 0;
 }
 
@@ -21,7 +84,8 @@ body {
   height: 8px;
 }
 .thin-scroll::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-slate-700;
+  @apply rounded-full;
+  background: var(--app-scroll);
 }
 .thin-scroll::-webkit-scrollbar-track {
   background: transparent;

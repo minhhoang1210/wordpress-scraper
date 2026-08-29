@@ -180,8 +180,15 @@ export function useScraper() {
       });
       const parsed = parseChapterPage(html, finalUrl, options);
       chapter.title = parsed.title;
+      chapter.protected = parsed.protected;
       chapter.html = parsed.html;
       chapter.wordCount = countWords(parsed.html);
+      if (parsed.protected) {
+        log(
+          "warn",
+          `${chapter.linkText}: chương yêu cầu mật khẩu — sẽ chèn liên kết tới trang gốc thay cho nội dung.`,
+        );
+      }
       chapter.status = "done";
     } catch (error) {
       // A cancelled chapter goes back in the queue rather than counting as a failure.

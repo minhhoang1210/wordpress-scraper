@@ -37,7 +37,15 @@ class PackageBuilder {
   }
 }
 
-/** Builds a valid EPUB 3 package (with an EPUB 2 NCX for older readers). */
+/** Placeholder chapter body for a page locked behind a password: a clickable link to it. */
+function lockedBody(chapter: Chapter): string {
+  const url = escapeXml(chapter.url);
+  return `    <p class="locked">Chương này được bảo vệ bằng mật khẩu trên trang gốc nên nội dung không tải về được. Mở liên kết dưới đây bằng trình duyệt và nhập mật khẩu để đọc tiếp.</p>
+    <p class="locked-url"><a href="${url}">${url}</a></p>`;
+}
+
+/**
+ * Builds a valid EPUB 3 package (with an EPUB 2 NCX for older readers). */
 export async function buildEpub(
   meta: StoryMeta,
   chapters: Chapter[],
@@ -113,7 +121,12 @@ export async function buildEpub(
     const href = `${id}.xhtml`;
     const title = chapter.title || chapter.linkText || `Chương ${index + 1}`;
 
-    const body = await embed(toXhtmlFragment(chapter.html ?? ""));
+    // Locked chapters carry no story text; the chapter keeps its place in the
+    // book but points the reader back at the source page, where they can enter
+    // the password themselves.
+    const body = chapter.protected
+      ? lockedBody(chapter)
+      : await embed(toXhtmlFragment(chapter.html ?? ""));
     oebps.file(
       href,
       xhtmlDocument(

@@ -36,6 +36,10 @@ img { max-width: 100%; height: auto; }
 .cover img { max-width: 100%; height: auto; }
 .meta { text-align: center; color: #555; font-style: italic; margin-bottom: 2em; }
 .source { font-size: 0.85em; color: #777; text-align: center; margin-top: 3em; }
+
+.locked { text-align: center; font-style: italic; color: #777; margin: 2.5em 1em 1.5em; }
+.locked-url { text-align: center; margin-bottom: 2em; }
+.locked-url a { color: #1d4ed8; word-break: break-all; text-decoration: underline; }
 `;
 
 export const CONTAINER_XML = `<?xml version="1.0" encoding="UTF-8"?>

@@ -3,6 +3,7 @@ import { computed } from "vue";
 import PanelSection from "./components/PanelSection.vue";
 import ChapterList from "./components/ChapterList.vue";
 import ActivityLog from "./components/ActivityLog.vue";
+import ThemeToggle from "./components/ThemeToggle.vue";
 import { useScraper } from "./composables/useScraper";
 
 const s = useScraper();
@@ -12,15 +13,18 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
 
 <template>
   <div class="mx-auto min-h-screen max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-    <header class="mb-8">
-      <h1 class="text-2xl font-semibold text-white sm:text-3xl">
-        Trình tải truyện WordPress
-      </h1>
-      <p class="mt-2 max-w-2xl text-sm text-slate-400">
-        Dán liên kết trang mục lục của một truyện trên WordPress. Công cụ sẽ đi
-        theo từng liên kết chương, trích xuất mỗi trang rồi đóng gói thành EPUB
-        hoặc PDF.
-      </p>
+    <header class="mb-8 flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-semibold text-app-strong sm:text-3xl">
+          Trình tải truyện WordPress
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm text-app-muted">
+          Dán liên kết trang mục lục của một truyện trên WordPress. Công cụ sẽ
+          đi theo từng liên kết chương, trích xuất mỗi trang rồi đóng gói thành
+          EPUB hoặc PDF.
+        </p>
+      </div>
+      <ThemeToggle />
     </header>
 
     <!-- Bước 1: nguồn -->
@@ -38,7 +42,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
           type="url"
           required
           placeholder="https://ten-mien.wordpress.com/ten-truyen/"
-          class="flex-1 rounded-lg border border-white/10 bg-ink-950 px-4 py-2.5 text-sm outline-none focus:border-indigo-400"
+          class="flex-1 rounded-lg border border-app-border bg-app-panel-alt px-4 py-2.5 text-sm outline-none focus:border-indigo-400"
           :disabled="s.busy.value"
         />
         <button
@@ -51,7 +55,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
       </form>
 
       <label
-        class="mt-4 flex items-center gap-2 border-t border-white/5 pt-4 text-sm text-slate-300"
+        class="mt-4 flex items-center gap-2 border-t border-app-border pt-4 text-sm text-app-muted"
       >
         <input
           v-model="s.options.stripImages"
@@ -64,7 +68,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
 
     <p
       v-if="s.errorText.value"
-      class="mb-5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+      class="mb-5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200"
     >
       {{ s.errorText.value }}
     </p>
@@ -88,7 +92,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
         <button
           v-if="s.phase.value === 'scraping'"
           type="button"
-          class="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-200 hover:bg-white/5"
+          class="rounded-lg border border-app-border-strong px-4 py-2 text-sm text-app-text hover:bg-app-hover"
           @click="s.cancel()"
         >
           Huỷ
@@ -96,25 +100,25 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
         <button
           v-if="s.failed.value.length > 0 && !s.busy.value"
           type="button"
-          class="rounded-lg border border-amber-400/40 px-4 py-2 text-sm text-amber-200 hover:bg-amber-400/10"
+          class="rounded-lg border border-amber-400/40 px-4 py-2 text-sm text-amber-700 hover:bg-amber-400/10 dark:text-amber-200"
           @click="s.retryFailed()"
         >
           Thử lại {{ s.failed.value.length }} chương lỗi
         </button>
-        <span v-if="s.fetched.value.length > 0" class="text-xs text-slate-400">
+        <span v-if="s.fetched.value.length > 0" class="text-xs text-app-muted">
           Đã tải {{ s.fetched.value.length }} chương ·
           {{ s.totalWords.value.toLocaleString("vi-VN") }} từ
         </span>
       </div>
 
       <div v-if="s.busy.value || s.progress.value > 0" class="mb-4">
-        <div class="h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div class="h-1.5 overflow-hidden rounded-full bg-app-track">
           <div
             class="h-full rounded-full bg-indigo-500 transition-[width] duration-300"
             :style="{ width: `${s.progress.value}%` }"
           />
         </div>
-        <p class="mt-1.5 text-xs text-slate-500">
+        <p class="mt-1.5 text-xs text-app-faint">
           {{ s.busyMessage.value || `${s.progress.value}% hoàn tất` }}
         </p>
       </div>
@@ -151,35 +155,36 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
           {{ s.exporting.value === "pdf" ? "Đang tạo…" : "Tải PDF" }}
         </button>
 
-        <label class="text-xs text-slate-400">
+        <label class="text-xs text-app-muted">
           Khổ giấy
           <select
             v-model="s.pdfOptions.pageSize"
-            class="mt-1 block rounded-lg border border-white/10 bg-ink-950 px-3 py-2 text-sm text-slate-200"
+            class="mt-1 block rounded-lg border border-app-border bg-app-panel-alt px-3 py-2 text-sm text-app-text"
           >
             <option value="a5">A5</option>
             <option value="a4">A4</option>
             <option value="letter">Letter</option>
           </select>
         </label>
-        <label class="text-xs text-slate-400">
+        <label class="text-xs text-app-muted">
           Cỡ chữ
           <input
             v-model.number="s.pdfOptions.fontSize"
             type="number"
             min="8"
             max="18"
-            class="mt-1 block w-20 rounded-lg border border-white/10 bg-ink-950 px-3 py-2 text-sm"
+            class="mt-1 block w-20 rounded-lg border border-app-border bg-app-panel-alt px-3 py-2 text-sm"
           />
         </label>
       </div>
 
-      <p v-if="s.busyMessage.value" class="mt-3 text-xs text-slate-400">
+      <p v-if="s.busyMessage.value" class="mt-3 text-xs text-app-muted">
         {{ s.busyMessage.value }}
       </p>
-      <p class="mt-3 text-xs text-slate-500">
+      <p class="mt-3 text-xs text-app-faint">
         Cả hai bản đều mở đầu bằng nội dung trang mục lục, sau đó tới từng
-        chương.
+        chương. Chương nào yêu cầu mật khẩu sẽ có liên kết tới trang gốc thay
+        cho nội dung.
       </p>
     </PanelSection>
 

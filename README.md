@@ -1,113 +1,75 @@
 # WordPress Story Scraper
 
-Vue 3 + TypeScript + Tailwind app that turns a WordPress story index page into a
-downloadable **EPUB** or **PDF**.
+Biến trang mục lục truyện trên WordPress thành file **EPUB** hoặc **PDF** tải được.
+
+Vue 3 + TypeScript + Tailwind. Toàn bộ xử lý chạy trong trình duyệt.
+
+## Chạy tại máy
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open http://localhost:5173.
+Mở http://localhost:5173.
 
-## How it works
+## Cách hoạt động
 
-1. **Index page** — you paste a table-of-contents URL, e.g.
-   `https://chanhday283.wordpress.com/sau-khi-xuyen-thanh-thien-mieu-tinh-linh-cua-giao-thao/`.
-   The app reads the page's `<article>` and collects every link whose URL or anchor text
-   contains `chuong`, `chap`, `chapter`, `phien-ngoai`, `ngoai-truyen` or `vi-thanh`.
-   Matching ignores Vietnamese diacritics, so _Chương 12_ and `chuong-12` both hit.
-2. **Chapters** — each linked page is fetched with bounded concurrency, and its
-   `<article>` element is extracted and cleaned (sharing widgets, related-post blocks,
-   comments, scripts and navigation are stripped; relative URLs are made absolute).
-   Failed chapters can be retried without redoing the rest.
-3. **Download** — the collected chapters are assembled in the browser into an EPUB 3
-   package or a paginated PDF.
+1. **Dán URL trang mục lục** — ví dụ một truyện WordPress bất kỳ.
+2. **Tìm chương** — app quét trang, lấy mọi liên kết chứa từ khoá
+   `chuong`, `chap`, `chapter`, `phien-ngoai`, `ngoai-truyen`, `vi-thanh`
+   (không phân biệt dấu tiếng Việt, nên _Chương 12_ và `chuong-12` đều khớp).
+3. **Tải từng chương** — giới hạn số yêu cầu song song; trích xuất và làm sạch
+   phần `<article>` (bỏ bình luận, widget chia sẻ, script, điều hướng…).
+   Chương lỗi có thể tải lại riêng mà không cần làm lại cả truyện.
+4. **Tải xuống** — đóng gói thành EPUB 3 hoặc PDF ngay trên máy.
 
-## The CORS proxy
+## Vì sao cần proxy?
 
-WordPress serves pages without `Access-Control-Allow-Origin`, so the browser cannot
-fetch them directly. [`server/proxy.ts`](server/proxy.ts) adds a `GET /api/fetch?url=…`
-passthrough to the Vite dev **and** preview servers. It refuses non-HTTP schemes and
-private/loopback hosts, and reports the post-redirect URL via `x-final-url`.
+WordPress không gửi header CORS nên trình duyệt không gọi thẳng được.
+Một endpoint chuyển tiếp `GET /api/fetch?url=…` được gắn vào server Vite
+(lúc chạy local) và triển khai dưới dạng serverless function trên Vercel.
+Nó chỉ nhận scheme `http(s)` và chặn các host nội bộ/loopback.
 
-It identifies itself honestly as `wordpress-scraper/1.0`. Spoofing a Chrome user-agent
-makes WordPress.com's bot protection reply `403` — a browser UA arriving over a
-non-browser TLS handshake looks worse than an unremarkable client.
+## Triển khai lên Vercel
 
-The handler lives in [`api/fetch.ts`](api/fetch.ts) and is the only implementation:
-Vercel picks it up automatically as a serverless function at `/api/fetch`, while
-[`server/proxy.ts`](server/proxy.ts) mounts the same `handle` function as Vite
-middleware for local work. It has no relative imports so nothing needs resolving at
-deploy time.
+- Import repo vào Vercel (hoặc `npx vercel`). Preset Vite tự nhận diện;
+  `vercel.json` lo phần còn lại. Không cần biến môi trường.
+- Lưu ý:
+  - Proxy trở thành **công khai** — ai biết URL đều dùng được. Bật
+    _Deployment Protection_ nếu cần.
+  - Mỗi chương là một lần gọi function (tính vào hạn mức plan Hobby).
+  - Response serverless giới hạn 4,5 MB; ảnh quá lớn sẽ bị bỏ qua, không làm hỏng file.
 
-Because every request goes through it, the app cannot be hosted as pure static files —
-it needs either the Vite server or a platform that runs the function.
+## Định dạng xuất
 
-## Deploying to Vercel
+Cả hai bản đều mở đầu bằng nội dung trang mục lục, sau đó tới từng chương.
 
-Push the repo to GitHub, then **Add New → Project** in Vercel and import it. The Vite
-preset is detected automatically; [`vercel.json`](vercel.json) pins the build command,
-output directory and the function's `maxDuration`. Or from the CLI:
+- **EPUB 3** — bìa tự tạo, mục lục, mỗi chương một file XHTML, ảnh được tải về
+  nhúng sẵn để đọc offline. Tích _Bỏ hình ảnh_ để lược bỏ ảnh.
+- **PDF** — trang tiêu đề, mục lục bấm được kèm số trang, khổ A4/A5/Letter.
+  Nhúng font Noto Sans nên tiếng Việt hiển thị đúng và chữ chọn được. Không vẽ ảnh
+  vào PDF; truyện có tranh nên dùng bản EPUB.
 
-```bash
-npx vercel
-```
+## Cấu trúc thư mục
 
-No environment variables are needed. Vercel builds on Node 22, which satisfies Vite 8
-(your local Node 20.15 only produces a warning).
+| Đường dẫn                       | Vai trò                                                 |
+| ------------------------------- | ------------------------------------------------------- |
+| `api/fetch.ts`                  | Endpoint chuyển tiếp CORS (Vercel + local)              |
+| `server/proxy.ts`               | Gắn endpoint trên server Vite dev/preview               |
+| `src/composables/useScraper.ts` | Điều phối luồng tải, tiến độ, trạng thái xuất           |
+| `src/lib/fetcher.ts`            | Gọi proxy, thử lại với backoff                          |
+| `src/lib/parser.ts`             | Trích xuất `<article>`, nhận diện chương, làm sạch HTML |
+| `src/lib/blocks.ts`             | HTML → khối văn bản cho PDF                             |
+| `src/lib/xhtml.ts`              | HTML → XHTML chuẩn                                      |
+| `src/lib/epub/`                 | Đóng gói EPUB 3: builder, OPF/NCX, ảnh                  |
+| `src/lib/pdf/`                  | Dựng PDF: font, ảnh, dàn trang                          |
+| `src/lib/types.ts`              | Kiểu dữ liệu dùng chung, hợp đồng giữa các module       |
+| `src/lib/text.ts`               | Chuẩn hoá không dấu, slug, định dạng chuỗi              |
+| `src/lib/async.ts`              | `runPool` — chạy tác vụ giới hạn song song              |
+| `src/lib/download.ts`           | Kích hoạt hộp thoại lưu file                            |
 
-Worth knowing before you deploy:
+## Code style
 
-- **The proxy becomes public.** Anyone who finds the URL can use `/api/fetch` to fetch
-  arbitrary public pages through your account. Private and loopback hosts are already
-  refused, but if that matters, turn on Vercel **Deployment Protection**, or restrict
-  the function to specific hostnames.
-- **One function call per chapter.** An 87-chapter story is 87 invocations plus one for
-  the index, which counts against the Hobby plan's free allowance.
-- **4.5 MB response cap** on serverless functions. Chapter HTML is far below it; a very
-  large embedded image would fail, and that image is skipped rather than breaking the
-  book.
-- If a deploy rejects `maxDuration: 30`, delete the `functions` block from
-  `vercel.json` and the platform default applies.
-
-## Output formats
-
-Both formats open with the index page's own text, then the chapters.
-
-**EPUB 3** — `mimetype` stored first and uncompressed, `META-INF/container.xml`, an OPF
-package, `nav.xhtml` plus a `toc.ncx` for older readers, a generated cover, a
-title/synopsis page, and one XHTML file per chapter. Chapter HTML is converted to
-well-formed XHTML, since readers parse content with a strict XML parser. Images are
-downloaded and embedded so the book works offline, unless you tick _Bỏ hình ảnh_.
-
-**PDF** — title page, a clickable _Mục lục_ with real page numbers, then a _Giới thiệu_
-section carrying the index page's content, then one chapter per page break, at
-A4/A5/Letter. Noto Sans is embedded as a Type0/Identity-H font so Vietnamese diacritics
-render correctly and text stays selectable and searchable. Images are not drawn into
-the PDF; use the EPUB for illustrated stories.
-
-The fonts in `public/fonts/` are [Noto Sans](https://github.com/googlefonts/noto-fonts)
-(SIL Open Font License 1.1). `jspdf` and `jszip` are loaded on demand, so they stay out
-of the initial bundle.
-
-## Layout
-
-| Path                            | Role                                                       |
-| ------------------------------- | ---------------------------------------------------------- |
-| `api/fetch.ts`                  | CORS passthrough — Vercel function and local middleware    |
-| `server/proxy.ts`               | Mounts `api/fetch.ts` on the Vite dev/preview server       |
-| `src/composables/useScraper.ts` | Orchestration, progress, export state                      |
-| `src/lib/fetcher.ts`            | Proxy requests, retries with backoff                       |
-| `src/lib/parser.ts`             | `<article>` extraction, chapter-link detection, sanitising |
-| `src/lib/blocks.ts`             | HTML → linear text blocks for the PDF writer               |
-| `src/lib/xhtml.ts`              | HTML → well-formed XHTML                                   |
-| `src/lib/epub/`                 | EPUB 3 packaging: builder, OPF/NCX templates, images       |
-| `src/lib/pdf/`                  | PDF builder: font loading, image decoding, page layout     |
-| `src/lib/types.ts`              | Shared domain types and exporter contracts                 |
-| `src/lib/text.ts`               | Diacritic-insensitive normalising, slugs, formatting       |
-| `src/lib/async.ts`              | `runPool` — bounded-concurrency task runner                |
-| `src/lib/download.ts`           | Triggers the browser save dialog for a blob                |
-
-Formatting is fixed by Prettier (`.prettierrc.json`); run `npm run format` or
-`npm run format:check`.
+Format bằng Prettier (`.prettierrc.json`): chạy `npm run format` để tự sửa, hoặc
+`npm run format:check` để kiểm tra.

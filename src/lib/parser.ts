@@ -99,10 +99,20 @@ const CONTENT_SELECTORS = [
   "#content",
 ];
 
+/**
+ * Most specific first. Modern WordPress.com themes mark the post heading as
+ * `h1.wp-block-post-title` and often print the site name in an earlier `h1`, so a
+ * bare `h1` fallback must come last or the blog name wins over the chapter title.
+ */
 const TITLE_SELECTORS = [
   "h1.entry-title",
   ".entry-title",
+  "h1.wp-block-post-title",
+  ".wp-block-post-title",
+  ".post-title",
   "article h1",
+  "main h1",
+  "#content h1",
   "h1",
   "title",
 ];
@@ -111,6 +121,39 @@ const parser = new DOMParser();
 
 export function parseHtml(html: string): Document {
   return parser.parseFromString(html, "text/html");
+}
+
+/**
+ * Selectors that mark a page as password-protected. WordPress wraps the password
+ * prompt in a form with this class; custom themes still use the same
+ * `post_password` input name.
+ */
+const PASSWORD_SELECTORS = [
+  ".post-password-form",
+  "form[class*='post-password']",
+  'input[name="post_password"]',
+  '.entry-content input[type="password"]',
+];
+
+/**
+ * WordPress locks a post by serving its normal URL with a password form instead
+ * of the story text. Detecting that lets the scraper keep the chapter and export
+ * a link to it rather than reporting a failure.
+ */
+export function isPasswordProtectedPage(doc: Document): boolean {
+  return PASSWORD_SELECTORS.some(
+    (selector) => doc.querySelector(selector) !== null,
+  );
+}
+
+/**
+ * Title prefix WordPress prepends to protected posts, e.g. "Protected: Chương 5",
+ * or its localized form "Bảo vệ: Chương 22 [H]" on Vietnamese sites.
+ */
+function stripProtectedPrefix(title: string): string {
+  return title
+    .replace(/^(protected|bảo vệ|bao ve|khóa|khoa)\s*:\s*/i, "")
+    .trim();
 }
 
 /** Finds the page's main content container, preferring the semantic <article>. */
@@ -376,13 +419,32 @@ export function parseIndexPage(
   };
 }
 
-/** Parses a chapter page into its title and cleaned body HTML. */
+/**
+ * Chapter title as a reader would see it: the post heading on the chapter page.
+ * Returns "" when the page names no usable title, so exporters fall back to the
+ * index link text ("Chương 12") instead of an arbitrary page heading.
+ */
+function chapterTitle(doc: Document): string {
+  const title = stripProtectedPrefix(extractTitle(doc));
+  return title && title.toLowerCase() !== "untitled" ? title : "";
+}
+
+/**
+ * Parses a chapter page into its title and cleaned body HTML. When the page is
+ * password-protected the body is left empty and `protected` is true instead —
+ * there is no story text to clean.
+ */
 export function parseChapterPage(
   html: string,
   finalUrl: string,
   options: CleanOptions,
-): { title: string; html: string } {
+): { title: string; html: string; protected: boolean } {
   const doc = parseHtml(html);
+
+  if (isPasswordProtectedPage(doc)) {
+    return { title: chapterTitle(doc), html: "", protected: true };
+  }
+
   const article = findArticle(doc);
   if (!article) throw new Error("Không tìm thấy phần tử <article>.");
 
@@ -393,5 +455,5 @@ export function parseChapterPage(
   const body = cleaned.innerHTML.trim();
   if (!body) throw new Error("Phần tử <article> rỗng sau khi làm sạch.");
 
-  return { title: extractTitle(doc), html: body };
+  return { title: chapterTitle(doc), html: body, protected: false };
 }

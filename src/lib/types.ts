@@ -11,6 +11,8 @@ export interface Chapter {
   order: number | null;
   selected: boolean;
   status: ChapterStatus;
+  /** True when the page asks for a password; the book then gets a link instead of content. */
+  protected?: boolean;
   /** Title taken from the chapter page itself once fetched. */
   title?: string;
   /** Cleaned inner HTML of the page's <article> element. */

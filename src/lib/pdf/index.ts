@@ -108,9 +108,26 @@ function buildSections(meta: StoryMeta, chapters: Chapter[]): Section[] {
   for (const [index, chapter] of chapters.entries()) {
     sections.push({
       title: chapter.title || chapter.linkText || `Chương ${index + 1}`,
-      blocks: htmlToBlocks(chapter.html ?? ""),
+      blocks: chapter.protected
+        ? lockedBlocks(chapter)
+        : htmlToBlocks(chapter.html ?? ""),
     });
   }
 
   return sections;
+}
+
+/**
+ * Placeholder body for a chapter locked behind a password. The PDF writer has no
+ * link annotations on body text, so the URL is drawn as bold text the reader can
+ * copy and open in a browser to type the password.
+ */
+function lockedBlocks(chapter: Chapter): Block[] {
+  return [
+    {
+      type: "paragraph",
+      text: "Chương này được bảo vệ bằng mật khẩu trên trang gốc nên nội dung không tải về được. Mở liên kết dưới đây bằng trình duyệt và nhập mật khẩu để đọc tiếp:",
+    },
+    { type: "subheading", text: chapter.url },
+  ];
 }
