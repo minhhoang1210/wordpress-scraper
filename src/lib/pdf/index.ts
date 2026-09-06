@@ -28,12 +28,6 @@ interface Section {
   blocks: Block[];
 }
 
-/**
- * Renders the scraped story as a PDF: title page, a contents list with real page
- * numbers and internal links, the index page's synopsis, then one chapter per page
- * break. Text stays selectable and searchable because Noto Sans is embedded rather
- * than the pages being rasterised.
- */
 export async function buildPdf(
   meta: StoryMeta,
   chapters: Chapter[],
@@ -57,7 +51,7 @@ export async function buildPdf(
   const sections = buildSections(meta, chapters);
   const images = await preloadImages(sections, options.fetchImage, options);
 
-  // ---- Body: sections in order, recording where each one starts --------------
+  // Record where each section starts, then insert front matter ahead of the body.
   const startPages = sections.map((section, index) => {
     if (index > 0) doc.addPage();
     const startPage = doc.getNumberOfPages();
@@ -79,7 +73,6 @@ export async function buildPdf(
 
   const bodyPages = doc.getNumberOfPages();
 
-  // ---- Front matter, inserted ahead of the body once its length is known -----
   const toc = planToc(sections.length, layout, metrics);
   const frontPages = 1 + toc.pages;
   for (let i = 0; i < frontPages; i++) doc.insertPage(1);
@@ -91,10 +84,6 @@ export async function buildPdf(
   return doc.output("blob");
 }
 
-/**
- * The index page's own text becomes the first section, so the PDF opens with the
- * synopsis just as the EPUB does, and it is listed in the contents like a chapter.
- */
 function buildSections(meta: StoryMeta, chapters: Chapter[]): Section[] {
   const sections: Section[] = [];
 
@@ -117,11 +106,7 @@ function buildSections(meta: StoryMeta, chapters: Chapter[]): Section[] {
   return sections;
 }
 
-/**
- * Placeholder body for a chapter locked behind a password. The PDF writer has no
- * link annotations on body text, so the URL is drawn as bold text the reader can
- * copy and open in a browser to type the password.
- */
+/** PDF body text cannot carry link annotations, so the URL is drawn as text. */
 function lockedBlocks(chapter: Chapter): Block[] {
   return [
     {

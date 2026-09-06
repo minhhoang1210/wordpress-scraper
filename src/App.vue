@@ -27,10 +27,9 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
       <ThemeToggle />
     </header>
 
-    <!-- Bước 1: nguồn -->
     <PanelSection
       title="1 · Trang mục lục"
-      subtitle="Nhận diện chương qua các từ khoá: chuong, chap, chapter, phien-ngoai, ngoai-truyen, vi-thanh."
+      subtitle="Mặc định quét mọi liên kết bài viết trong trang. Bỏ tích Lấy mọi liên kết trên trang để chỉ nhận chương chứa từ khoá chuong, chap, chapter, phien-ngoai, ngoai-truyen, vi-thanh."
       class="mb-5"
     >
       <form
@@ -54,16 +53,29 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
         </button>
       </form>
 
-      <label
-        class="mt-4 flex items-center gap-2 border-t border-app-border pt-4 text-sm text-app-muted"
+      <div
+        class="mt-4 flex flex-col gap-3 border-t border-app-border pt-4 text-sm text-app-muted"
       >
-        <input
-          v-model="s.options.stripImages"
-          type="checkbox"
-          class="size-4 accent-indigo-500"
-        />
-        Bỏ hình ảnh
-      </label>
+        <label class="flex items-center gap-2">
+          <input
+            v-model="s.options.includeAllLinks"
+            type="checkbox"
+            class="size-4 accent-indigo-500"
+          />
+          Lấy mọi liên kết trên trang
+          <span class="text-xs text-app-faint">
+            (dành cho chương chỉ đánh số như 1, 2, 3…)
+          </span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input
+            v-model="s.options.stripImages"
+            type="checkbox"
+            class="size-4 accent-indigo-500"
+          />
+          Bỏ hình ảnh
+        </label>
+      </div>
     </PanelSection>
 
     <p
@@ -73,7 +85,6 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
       {{ s.errorText.value }}
     </p>
 
-    <!-- Bước 2: chương -->
     <PanelSection
       v-if="s.meta.value"
       title="2 · Danh sách chương"
@@ -130,7 +141,6 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
       />
     </PanelSection>
 
-    <!-- Bước 3: tải xuống -->
     <PanelSection
       v-if="s.fetched.value.length > 0"
       title="3 · Tải xuống"

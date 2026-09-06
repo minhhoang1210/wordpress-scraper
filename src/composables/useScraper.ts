@@ -13,7 +13,6 @@ export type Phase =
 
 export type ExportFormat = "epub" | "pdf";
 
-/** Oldest entries are dropped once the log passes this length. */
 const MAX_LOG_ENTRIES = 500;
 
 export function useScraper() {
@@ -28,6 +27,9 @@ export function useScraper() {
 
   const options = reactive<ScrapeOptions>({
     stripImages: false,
+    // Broad discovery is on by default: numbered chapter lists ("1 2 3 …") carry
+    // no keyword to match, and chrome links are filtered out separately.
+    includeAllLinks: true,
     concurrency: 4,
     delayMs: 250,
     retries: 2,
@@ -75,14 +77,12 @@ export function useScraper() {
     () => fetched.value.length > 0 && !exporting.value,
   );
 
-  /** Starts a fresh abort scope, cancelling anything still running. */
   function restartController(): AbortSignal {
     controller?.abort();
     controller = new AbortController();
     return controller.signal;
   }
 
-  /** Bước 1 — đọc trang mục lục và liệt kê các liên kết chương. */
   async function loadIndex() {
     const target = indexUrl.value.trim();
     if (!target) return;
@@ -129,7 +129,6 @@ export function useScraper() {
     }
   }
 
-  /** Bước 2 — tải từng chương đã chọn, giới hạn số yêu cầu song song. */
   async function scrapeChapters(only?: Chapter[]) {
     const queue = (only ?? selected.value).filter((c) => c.status !== "done");
     if (queue.length === 0) return;
@@ -191,7 +190,7 @@ export function useScraper() {
       }
       chapter.status = "done";
     } catch (error) {
-      // A cancelled chapter goes back in the queue rather than counting as a failure.
+      // A cancelled chapter returns to the queue instead of counting as a failure.
       if (isAbortError(error)) {
         chapter.status = "pending";
         return;
@@ -210,10 +209,6 @@ export function useScraper() {
     busyMessage.value = "";
   }
 
-  /**
-   * Bước 3 — dựng tệp tải về. Both exporters share the same hook shape, so the
-   * bookkeeping around them is identical.
-   */
   async function runExport(
     format: ExportFormat,
     build: (meta: StoryMeta, chapters: Chapter[]) => Promise<Blob>,
@@ -240,7 +235,6 @@ export function useScraper() {
     }
   }
 
-  /** Shared by both exporters: embed images unless the user asked to drop them. */
   const exportHooks = () => ({
     fetchImage: options.stripImages
       ? undefined
@@ -280,7 +274,6 @@ export function useScraper() {
   }
 
   return {
-    // state
     indexUrl,
     phase,
     meta,
@@ -291,7 +284,6 @@ export function useScraper() {
     exporting,
     options,
     pdfOptions,
-    // derived
     selected,
     fetched,
     failed,
@@ -299,7 +291,6 @@ export function useScraper() {
     progress,
     busy,
     canExport,
-    // actions
     loadIndex,
     scrapeChapters,
     retryFailed,

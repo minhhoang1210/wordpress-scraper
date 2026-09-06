@@ -1,13 +1,8 @@
 @import "tailwindcss";
 
-/* Dark mode is driven by a .dark class on <html>, toggled by the theme switch. */
+/* Runtime variables (overridden by .dark) let the app-* utilities flip theme. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/*
- * Semantic surface/text tokens. :root carries the light theme, .dark the dark
- * theme; the app-* utilities resolve through these variables at runtime, so one
- * set of classes (bg-app-panel, text-app-muted, …) serves both modes.
- */
 :root {
   --app-bg: oklch(0.984 0.003 247.858);
   --app-panel: oklch(1 0 0);
@@ -40,10 +35,7 @@
   --app-scroll: oklch(0.372 0.044 257.287);
 }
 
-/*
- * `inline` makes the utilities reference the mode variables directly (instead of
- * a @theme constant), so the class on <html> flips every app-* colour.
- */
+/* `inline` resolves the utilities against the runtime variables above. */
 @theme inline {
   --color-app-bg: var(--app-bg);
   --color-app-panel: var(--app-panel);
@@ -78,7 +70,6 @@ body {
   margin: 0;
 }
 
-/* Slim scrollbars for the log and chapter panes. */
 .thin-scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;

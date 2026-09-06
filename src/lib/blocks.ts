@@ -13,11 +13,6 @@ export interface Block {
 const HEADING_TAGS = new Set(["H1", "H2"]);
 const SUBHEADING_TAGS = new Set(["H3", "H4", "H5", "H6"]);
 
-/**
- * Flattens cleaned chapter HTML into a linear list of text blocks. The PDF writer
- * draws text directly rather than rendering a DOM, so structure has to be reduced
- * to something it can lay out line by line.
- */
 export function htmlToBlocks(html: string): Block[] {
   const doc = parseHtml(`<div id="__root">${html}</div>`);
   const root = doc.getElementById("__root");
@@ -36,7 +31,6 @@ export function htmlToBlocks(html: string): Block[] {
 
   const pushImage = (element: Element) => {
     const src = element.getAttribute("src");
-    // Only absolute http(s) sources are fetchable; parser.ts already resolved them.
     if (src && /^https?:/i.test(src)) {
       blocks.push({
         type: "image",
@@ -48,7 +42,6 @@ export function htmlToBlocks(html: string): Block[] {
 
   const walk = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      // Loose text between block elements still belongs in the output.
       push("paragraph", node.textContent ?? "");
       return;
     }
@@ -64,19 +57,14 @@ export function htmlToBlocks(html: string): Block[] {
       return push("subheading", element.textContent ?? "");
     if (tag === "BLOCKQUOTE") return push("quote", element.textContent ?? "");
     if (tag === "LI") return push("list", element.textContent ?? "");
-    // WordPress usually wraps illustrations in a <p>; recurse so the image survives
-    // instead of being flattened to its (empty) text content.
+    // WordPress wraps illustrations in a <p>; recurse so the image survives.
     if (tag === "P") {
       if (element.querySelector("img"))
         return Array.from(element.childNodes).forEach(walk);
       return pushWithLineBreaks(element, push);
     }
     if (tag === "IMG") return pushImage(element);
-    // FIGURE falls through to the container branch so its <img> and <figcaption>
-    // are both picked up.
 
-    // Containers (div, section, ul, ol, table…) recurse; leaf inline content is
-    // gathered as a paragraph so nothing is silently dropped.
     if (element.children.length > 0) {
       Array.from(element.childNodes).forEach(walk);
     } else {
@@ -88,7 +76,6 @@ export function htmlToBlocks(html: string): Block[] {
   return blocks;
 }
 
-/** A <p> holding <br>-separated lines becomes one paragraph per line. */
 function pushWithLineBreaks(
   element: Element,
   push: (type: BlockType, raw: string) => void,
@@ -100,7 +87,7 @@ function pushWithLineBreaks(
 
 function tidy(value: string): string {
   return value
-    .replace(/ /g, " ")
+    .replace(/\u00a0/g, " ")
     .replace(/[ \t]+/g, " ")
     .trim();
 }

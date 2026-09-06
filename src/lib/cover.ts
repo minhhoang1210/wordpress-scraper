@@ -1,4 +1,3 @@
-/** Draws a simple typographic cover so the EPUB shows something in a library grid. */
 export async function renderCover(
   title: string,
   author: string,

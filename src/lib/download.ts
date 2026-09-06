@@ -1,7 +1,6 @@
-/** Object URLs are released on a delay so the browser has time to start the save. */
+// Released late so the browser has time to start the save.
 const REVOKE_DELAY_MS = 10_000;
 
-/** Triggers a browser download for an in-memory blob. */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

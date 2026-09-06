@@ -19,9 +19,9 @@ export interface EmbeddedImage {
 }
 
 /**
- * Downloads each remote image once and rewrites its `src` to a book-relative path,
- * so the EPUB reads correctly offline. `images` accumulates across calls: the same
- * illustration used in several chapters is stored a single time.
+ * Downloads each remote image once and rewrites its `src` to a book-relative
+ * path. `images` accumulates across calls, so the same illustration used in
+ * several chapters is stored a single time.
  */
 export async function embedImages(
   bodyXhtml: string,
@@ -65,7 +65,6 @@ export async function embedImages(
   return toXhtmlFragment(root.innerHTML);
 }
 
-/** Short content-addressed id, so the same URL always maps to the same file. */
 async function hashUrl(url: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-1",

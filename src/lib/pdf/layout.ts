@@ -4,10 +4,9 @@ import type { StoryMeta } from "../types";
 import type { ImageStore } from "./images";
 import { FONT_FAMILY } from "./fonts";
 
-/** CSS pixels are 1/96 in and PDF points 1/72 in, so pixels map to points at 0.75. */
+// CSS pixels are 1/96 in and PDF points 1/72 in, so pixels map to points at 0.75.
 const PX_TO_PT = 0.75;
 
-/** Page geometry in points, derived once from the chosen page size. */
 export interface Layout {
   marginX: number;
   marginTop: number;
@@ -17,7 +16,6 @@ export interface Layout {
   textWidth: number;
 }
 
-/** Type scale, all derived from the user's chosen body size. */
 export interface Metrics {
   body: number;
   leading: number;
@@ -47,12 +45,10 @@ export function createMetrics(fontSize: number): Metrics {
   };
 }
 
-/** The lowest y a drawing may reach before the page must break. */
 function pageFloor(layout: Layout): number {
   return layout.height - layout.marginBottom;
 }
 
-/** Breaks to a new page when `needed` points would not fit below the cursor. */
 export function ensureRoom(
   doc: jsPDF,
   cursor: number,
@@ -66,7 +62,6 @@ export function ensureRoom(
   return cursor;
 }
 
-/** Draws a section heading and returns the cursor below it. */
 export function drawSectionTitle(
   doc: jsPDF,
   title: string,
@@ -138,7 +133,6 @@ export function drawBlock(
   return cursor + leading * 0.35;
 }
 
-/** Centres an image, scaling it to the text column and breaking the page if needed. */
 function drawImage(
   doc: jsPDF,
   block: Block,
@@ -155,7 +149,6 @@ function drawImage(
   let width = Math.min(layout.textWidth, image.width * PX_TO_PT);
   let height = (width * image.height) / image.width;
 
-  // Never let a tall image exceed one full page.
   if (height > maxHeight) {
     height = maxHeight;
     width = (height * image.width) / image.height;
@@ -212,14 +205,13 @@ export function drawTitlePage(
   doc.setTextColor(0);
 }
 
-/** How many contents rows fit on one page, and therefore how many pages to reserve. */
 export function planToc(
   sectionCount: number,
   layout: Layout,
   metrics: Metrics,
 ): { rows: number; pages: number } {
   const usable = layout.height - layout.marginTop - layout.marginBottom;
-  // Two rows' worth of slack absorbs the "Mục lục" heading on the first page.
+  // Two rows of slack absorb the "Mục lục" heading on the first page.
   const rows = Math.max(1, Math.floor(usable / metrics.tocLeading) - 2);
   return { rows, pages: Math.max(1, Math.ceil(sectionCount / rows)) };
 }
@@ -251,7 +243,7 @@ export function drawToc(
     const slice = sections.slice(page * toc.rows, (page + 1) * toc.rows);
     slice.forEach((section, offset) => {
       const index = page * toc.rows + offset;
-      const pageNumber = startPages[index]; // 1-based within the body section
+      const pageNumber = startPages[index];
       const label = doc.splitTextToSize(
         section.title,
         layout.textWidth - body * 3,
@@ -259,7 +251,6 @@ export function drawToc(
 
       doc.text(label, layout.marginX, cursor);
       doc.text(String(pageNumber), numberColumn, cursor, { align: "right" });
-      // Internal jump to the section's absolute page.
       doc.link(layout.marginX, cursor - body, layout.textWidth, body * 1.2, {
         pageNumber: pageNumber + frontPages,
       });
@@ -268,7 +259,7 @@ export function drawToc(
   }
 }
 
-/** Stamps page numbers on body pages only, so front matter stays unnumbered. */
+/** Page numbers go on body pages only, so front matter stays unnumbered. */
 export function drawPageNumbers(
   doc: jsPDF,
   frontPages: number,

@@ -12,9 +12,8 @@ export function escapeXml(value: string): string {
 }
 
 /**
- * Converts an HTML fragment into well-formed XHTML. EPUB readers parse content
- * documents with a strict XML parser, so unclosed <br>/<img> tags or raw `&`
- * characters — both routine in WordPress output — would break the book.
+ * Serialises an HTML fragment as well-formed XHTML: EPUB readers use a strict XML
+ * parser, and raw `&` or unclosed <br>/<img> tags are routine in WordPress output.
  */
 export function toXhtmlFragment(html: string): string {
   const doc = parser.parseFromString(
@@ -27,14 +26,13 @@ export function toXhtmlFragment(html: string): string {
   return (
     Array.from(root.childNodes)
       .map((node) => serializer.serializeToString(node))
-      // XMLSerializer stamps every serialized element with the XHTML namespace; the
-      // wrapping document already declares it, so the repetition is just noise.
+      // The wrapping document already declares the XHTML namespace, so the
+      // per-element repetition is just noise.
       .join("")
       .replace(new RegExp(` xmlns="${XHTML_NS}"`, "g"), "")
   );
 }
 
-/** Wraps a fragment in a complete XHTML content document. */
 export function xhtmlDocument(
   title: string,
   bodyXhtml: string,

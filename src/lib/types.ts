@@ -1,21 +1,21 @@
 export type ChapterStatus =
   "pending" | "fetching" | "done" | "failed" | "skipped";
 
-/** A chapter link discovered on the index page, plus its scrape result once fetched. */
+/** A chapter link discovered on the index page, plus its scrape result. */
 export interface Chapter {
   id: string;
   url: string;
-  /** Anchor text from the index page — used as a fallback title. */
+  /** Anchor text from the index page — fallback title. */
   linkText: string;
-  /** Leading number parsed out of the URL/anchor text, used for sorting. */
+  /** Chapter number parsed from the URL/anchor text, used for sorting. */
   order: number | null;
   selected: boolean;
   status: ChapterStatus;
-  /** True when the page asks for a password; the book then gets a link instead of content. */
+  /** True when the page asks for a password; the book gets a link instead of content. */
   protected?: boolean;
-  /** Title taken from the chapter page itself once fetched. */
+  /** Title read from the chapter page itself once fetched. */
   title?: string;
-  /** Cleaned inner HTML of the page's <article> element. */
+  /** Cleaned inner HTML of the page's main content. */
   html?: string;
   wordCount?: number;
   error?: string;
@@ -25,24 +25,29 @@ export interface StoryMeta {
   title: string;
   author: string;
   language: string;
-  /** Cleaned HTML of the index page, minus the chapter list — used as a synopsis. */
+  /** Cleaned index content without the chapter list — used as the synopsis. */
   descriptionHtml: string;
   sourceUrl: string;
 }
 
 export interface ScrapeOptions {
-  /** Drop <img> elements from chapter bodies. The only user-facing toggle. */
   stripImages: boolean;
+  /** Keep every non-chrome link on the index page, not only keyword-matching chapters. */
+  includeAllLinks: boolean;
   /** Parallel chapter fetches. */
   concurrency: number;
-  /** Delay in ms between the start of each fetch, to stay polite. */
+  /** Pause between each fetch to stay polite to the source server. */
   delayMs: number;
   /** Attempts per chapter before giving up. */
   retries: number;
 }
 
-/** The subset of options that content cleaning actually depends on. */
 export type CleanOptions = Pick<ScrapeOptions, "stripImages">;
+
+export type IndexParseOptions = Pick<
+  ScrapeOptions,
+  "stripImages" | "includeAllLinks"
+>;
 
 export interface LogEntry {
   id: number;
@@ -57,15 +62,13 @@ export interface FetchedDocument {
   finalUrl: string;
 }
 
-/** Supplies raw image bytes to an exporter. Shared by the EPUB and PDF builders. */
+/** Supplies raw image bytes to an exporter. */
 export type ImageFetcher = (
   url: string,
 ) => Promise<{ data: Uint8Array; mimeType: string }>;
 
-/** Progress reporting common to both exporters. */
+/** Progress reporting shared by both exporters. */
 export interface ExportHooks {
-  /** Replaces the current busy message; fires often. */
   onStatus?: (message: string) => void;
-  /** A recoverable problem worth showing in the log, e.g. a skipped image. */
   onWarning?: (message: string) => void;
 }

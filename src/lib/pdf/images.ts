@@ -3,9 +3,7 @@ import type { ExportHooks, ImageFetcher } from "../types";
 import { runPool } from "../async";
 import { errorMessage } from "../text";
 
-/** Longest edge, in pixels, that an embedded image is downscaled to. */
 const MAX_IMAGE_EDGE = 1400;
-/** Re-encode quality; low enough to keep an illustrated book a sane size. */
 const JPEG_QUALITY = 0.82;
 const CONCURRENCY = 4;
 
@@ -19,12 +17,10 @@ export interface LoadedImage {
 export type ImageStore = Map<string, LoadedImage>;
 
 /**
- * Downloads each distinct image referenced by the sections and decodes it to a JPEG
- * data URL. This has to happen before layout because the drawing pass is synchronous
- * and needs pixel dimensions to reserve the right space.
- *
- * Failures are reported and skipped — a missing illustration must never abort the
- * whole export.
+ * Downloads each distinct image and decodes it to a JPEG data URL. This runs
+ * before layout because the drawing pass is synchronous and needs pixel
+ * dimensions to reserve the right space. A missing illustration is skipped and
+ * reported, never fatal.
  */
 export async function preloadImages(
   sections: { blocks: Block[] }[],
@@ -65,7 +61,7 @@ export async function preloadImages(
   return store;
 }
 
-/** Rasterises arbitrary image bytes (PNG/WebP/GIF/JPEG) to a JPEG jsPDF can embed. */
+/** Rasterises arbitrary image bytes (PNG/WebP/GIF/JPEG) to a drawable JPEG. */
 async function decodeImage(
   url: string,
   fetchImage: ImageFetcher,
@@ -99,7 +95,7 @@ async function decodeImage(
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    // JPEG has no alpha, so transparent areas would come out black without this.
+    // JPEG has no alpha channel, so transparent areas come out black otherwise.
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(element, 0, 0, width, height);

@@ -50,7 +50,6 @@ export const CONTAINER_XML = `<?xml version="1.0" encoding="UTF-8"?>
 </container>
 `;
 
-/** The OPF package document: metadata, manifest and reading order. */
 export function buildOpf(options: {
   meta: StoryMeta;
   uuid: string;
@@ -63,8 +62,7 @@ export function buildOpf(options: {
   const indent = (entries: string[]) =>
     entries.map((entry) => `    ${entry}`).join("\n");
 
-  // dc:creator is omitted rather than left empty — an empty one shows as a blank
-  // author in reader libraries.
+  // An empty dc:creator renders as a blank author in reader libraries.
   const creator = meta.author
     ? `    <dc:creator>${escapeXml(meta.author)}</dc:creator>\n`
     : "";
@@ -92,7 +90,6 @@ ${indent(spine)}
 `;
 }
 
-/** The EPUB 3 navigation document. */
 export function buildNavBody(navPoints: NavPoint[]): string {
   const items = navPoints
     .map(

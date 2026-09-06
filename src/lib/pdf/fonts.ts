@@ -14,16 +14,16 @@ export interface LoadedFont {
   base64: string;
 }
 
-/** Cached across exports so the ~1.7 MB of TTFs download only once per session. */
+// Cached across exports so the ~1.7 MB of TTFs download only once per session.
 let fontCache: Promise<LoadedFont[]> | null = null;
 
 /**
- * Loads the Noto Sans faces that get embedded into the PDF. jsPDF's built-in fonts
- * are Latin-1 only, so without these Vietnamese diacritics would be dropped.
+ * jsPDF's built-in fonts are Latin-1 only, so Vietnamese diacritics require
+ * embedding the Noto Sans faces shipped in public/fonts.
  */
 export function loadFonts(): Promise<LoadedFont[]> {
   fontCache ??= Promise.all(FONT_FILES.map(loadFont)).catch((error) => {
-    // Don't cache a failure — a transient network error should be retryable.
+    // Never cache a failure; a transient network error should be retryable.
     fontCache = null;
     throw error;
   });
@@ -51,7 +51,7 @@ async function loadFont({
 }
 
 function toBase64(bytes: Uint8Array): string {
-  // Chunked to stay well under the argument limit of String.fromCharCode.
+  // Chunked to stay under the argument limit of String.fromCharCode.
   let binary = "";
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) {

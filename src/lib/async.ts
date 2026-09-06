@@ -1,7 +1,5 @@
 export interface PoolOptions {
-  /** Number of tasks in flight at once. */
   concurrency: number;
-  /** Pause after each completed task, to stay polite to the source server. */
   delayMs?: number;
   signal?: AbortSignal;
 }
@@ -10,11 +8,9 @@ export const sleep = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Runs `task` over every item with a bounded number of workers, preserving the order
- * items are picked up. Used for both chapter downloads and image preloading.
- *
- * `task` is expected to handle its own failures: a rejection here aborts the pool,
- * which is rarely what a batch job wants.
+ * Runs `task` over every item with a bounded number of workers, picking items up
+ * in order. A rejected `task` aborts the pool — callers must handle their own
+ * item-level failures.
  */
 export async function runPool<T>(
   items: T[],

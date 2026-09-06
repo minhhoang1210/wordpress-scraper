@@ -1,9 +1,9 @@
 import type { FetchedDocument } from "./types";
 
 /**
- * WordPress pages carry no CORS headers, so the browser cannot fetch them directly.
- * Every request goes through the same-origin passthrough in server/proxy.ts, which is
- * mounted on both the dev and preview servers.
+ * WordPress pages carry no CORS headers, so every request goes through the
+ * same-origin passthrough in server/proxy.ts (mounted on the dev and preview
+ * servers, and deployed as a serverless function on Vercel).
  */
 function buildRequestUrl(target: string): string {
   return `/api/fetch?url=${encodeURIComponent(target)}`;
@@ -17,7 +17,6 @@ export interface FetchOptions {
   onRetry?: (attempt: number, error: Error) => void;
 }
 
-/** Fetches a page as text, retrying with exponential backoff on transient failures. */
 export async function fetchPage(
   target: string,
   { retries = 2, signal, onRetry }: FetchOptions = {},
@@ -41,7 +40,7 @@ export async function fetchPage(
 
       return {
         html: await response.text(),
-        // The proxy reports the post-redirect URL so relative links resolve correctly.
+        // Post-redirect URL, so relative links resolve against the real page.
         finalUrl: response.headers.get("x-final-url") || target,
       };
     } catch (error) {
@@ -58,7 +57,6 @@ export async function fetchPage(
   throw lastError;
 }
 
-/** Fetches a binary asset (used for embedding images into the EPUB). */
 export async function fetchBinary(
   target: string,
   signal?: AbortSignal,

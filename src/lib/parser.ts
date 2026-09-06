@@ -1,12 +1,13 @@
-import type { Chapter, CleanOptions, StoryMeta } from "./types";
+import type {
+  Chapter,
+  CleanOptions,
+  IndexParseOptions,
+  StoryMeta,
+} from "./types";
 import { collapseWhitespace, normalize } from "./text";
 
-/**
- * A link is treated as a chapter when its href or anchor text contains one of these
- * markers. Both sides are compared with diacritics stripped, so "Chương 12",
- * "chuong-12", "Phiên ngoại 3" and "phien-ngoai-3" all match.
- */
-export const CHAPTER_KEYWORDS = [
+/** Matched accent-insensitively against both URL slugs (hyphenated) and anchor text (spaced). */
+const CHAPTER_KEYWORDS = [
   "chuong",
   "chap",
   "chapter",
@@ -15,11 +16,6 @@ export const CHAPTER_KEYWORDS = [
   "vi-thanh",
 ];
 
-/**
- * Each keyword in both spellings: URL slugs join words with hyphens
- * ("phien-ngoai-3"), while anchor text separates them with spaces ("Phiên ngoại 3").
- * Precomputed so matching stays a plain substring test.
- */
 const KEYWORD_VARIANTS = [
   ...new Set(
     CHAPTER_KEYWORDS.flatMap((keyword) => [
@@ -30,17 +26,75 @@ const KEYWORD_VARIANTS = [
 ];
 
 /**
- * Behaviour that was once user-configurable and is now fixed. Kept named rather than
- * inlined so the intent stays visible at each use site.
+ * In broad discovery mode keyword filtering cannot reject these, so archive
+ * listings, feeds, admin endpoints and asset files are excluded up front.
  */
-const POLICY = {
-  /** Only follow links pointing at the index page's own host. */
-  sameOriginOnly: true,
-  /** Flatten <a> elements inside chapter bodies to plain text. */
-  stripLinks: true,
-} as const;
+const NON_CONTENT_PATH = [
+  /^\/(?:author|category|date|feed|page|tag|trackback|type|wp-admin|wp-content|wp-json|wp-login\.php|xmlrpc\.php)(?:\/|$)/i,
+  /\.(?:avif|bmp|css|eot|gif|ico|jpe?g|js|json|m4v|mov|mp3|mp4|ogg|otf|pdf|png|rar|svg|ttf|webm|webp|woff2?|xml|zip)(?:\?|$)/i,
+];
 
-/** Elements that are chrome rather than story content on a WordPress post. */
+function isNonContentLink(url: string): boolean {
+  const { pathname } = new URL(url);
+  if (pathname === "/") return true;
+  return NON_CONTENT_PATH.some((pattern) => pattern.test(pathname));
+}
+
+/**
+ * Canonical identity of a link: host + path without its trailing slash. Query
+ * strings and hashes are ignored so `?share=`, `?fbclid=…` and `#` variants of
+ * one URL collapse into a single chapter.
+ */
+function linkKey(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = "";
+    parsed.search = "";
+    return stripTrailingSlash(parsed.toString()).toLowerCase();
+  } catch {
+    return url;
+  }
+}
+
+/** Detached copy of the element with chrome nodes removed. */
+function withoutJunk(source: Element): HTMLElement {
+  const clone = source.cloneNode(true) as HTMLElement;
+  for (const selector of JUNK_SELECTORS) {
+    clone.querySelectorAll(selector).forEach((node) => node.remove());
+  }
+  return clone;
+}
+
+/** Drops short list items/paragraphs that name a chapter ("Chương 12"). */
+function removeShortChapterLabels(root: HTMLElement): void {
+  root.querySelectorAll("li, p").forEach((node) => {
+    const text = collapseWhitespace(node.textContent ?? "");
+    if (text && text.length < 120 && isChapterLink("", text)) node.remove();
+  });
+}
+
+/**
+ * Numbered indexes pack many chapters into one paragraph, so whole list items or
+ * paragraphs that carry a chapter link are dropped rather than leaving a wall of
+ * stray numbers in the exported synopsis.
+ */
+function removeChapterCarriers(
+  root: HTMLElement,
+  baseUrl: string,
+  chapters: Chapter[],
+): void {
+  const chapterKeys = new Set(chapters.map((chapter) => linkKey(chapter.url)));
+  root.querySelectorAll("li, p").forEach((node) => {
+    const carriesChapter = Array.from(node.querySelectorAll("a[href]")).some(
+      (anchor) =>
+        chapterKeys.has(
+          linkKey(resolveUrl(anchor.getAttribute("href"), baseUrl) ?? ""),
+        ),
+    );
+    if (carriesChapter) node.remove();
+  });
+}
+
 const JUNK_SELECTORS = [
   "script",
   "style",
@@ -80,7 +134,6 @@ const JUNK_SELECTORS = [
   '[aria-hidden="true"].screen-reader-text',
 ];
 
-/** Attributes kept when sanitising; everything else is dropped. */
 const ALLOWED_ATTRS: Record<string, string[]> = {
   a: ["href", "title"],
   img: ["src", "alt", "width", "height"],
@@ -89,7 +142,7 @@ const ALLOWED_ATTRS: Record<string, string[]> = {
   th: ["colspan", "rowspan"],
 };
 
-/** Containers to look for, most specific first, when locating the story text. */
+/** Most specific container first; the fallback list is never fully relied on. */
 const CONTENT_SELECTORS = [
   "article .entry-content",
   "article",
@@ -100,9 +153,8 @@ const CONTENT_SELECTORS = [
 ];
 
 /**
- * Most specific first. Modern WordPress.com themes mark the post heading as
- * `h1.wp-block-post-title` and often print the site name in an earlier `h1`, so a
- * bare `h1` fallback must come last or the blog name wins over the chapter title.
+ * The bare `h1` fallback must come last: modern themes print the site name in an
+ * earlier `h1`, which would otherwise win over the post title.
  */
 const TITLE_SELECTORS = [
   "h1.entry-title",
@@ -124,9 +176,8 @@ export function parseHtml(html: string): Document {
 }
 
 /**
- * Selectors that mark a page as password-protected. WordPress wraps the password
- * prompt in a form with this class; custom themes still use the same
- * `post_password` input name.
+ * WordPress serves a password form instead of the post text when the post is
+ * protected; the scraper keeps such chapters and exports a link to them.
  */
 const PASSWORD_SELECTORS = [
   ".post-password-form",
@@ -135,28 +186,19 @@ const PASSWORD_SELECTORS = [
   '.entry-content input[type="password"]',
 ];
 
-/**
- * WordPress locks a post by serving its normal URL with a password form instead
- * of the story text. Detecting that lets the scraper keep the chapter and export
- * a link to it rather than reporting a failure.
- */
 export function isPasswordProtectedPage(doc: Document): boolean {
   return PASSWORD_SELECTORS.some(
     (selector) => doc.querySelector(selector) !== null,
   );
 }
 
-/**
- * Title prefix WordPress prepends to protected posts, e.g. "Protected: Chương 5",
- * or its localized form "Bảo vệ: Chương 22 [H]" on Vietnamese sites.
- */
+/** Localized prefixes WordPress prepends to protected post titles. */
 function stripProtectedPrefix(title: string): string {
   return title
     .replace(/^(protected|bảo vệ|bao ve|khóa|khoa)\s*:\s*/i, "")
     .trim();
 }
 
-/** Finds the page's main content container, preferring the semantic <article>. */
 export function findArticle(doc: Document): Element | null {
   for (const selector of CONTENT_SELECTORS) {
     const found = doc.querySelector(selector);
@@ -173,7 +215,6 @@ export function extractTitle(doc: Document): string {
   return "Untitled";
 }
 
-/** Returns an empty string when the page names no author; callers omit the field. */
 export function extractAuthor(doc: Document): string {
   const meta =
     doc.querySelector('meta[name="author"]')?.getAttribute("content") ??
@@ -191,21 +232,17 @@ export function extractLanguage(doc: Document): string {
 }
 
 /**
- * Rewrites relative hrefs/srcs to absolute, strips junk nodes and unknown attributes.
- * Returns a detached clone — the source document is left untouched.
+ * Resolves URLs, strips junk nodes and unknown attributes. Returns a detached
+ * clone; the source document is left untouched.
  */
 export function cleanContent(
   source: Element,
   baseUrl: string,
   options: { stripImages: boolean; stripLinks: boolean },
 ): HTMLElement {
-  const root = source.cloneNode(true) as HTMLElement;
+  const root = withoutJunk(source);
 
-  for (const selector of JUNK_SELECTORS) {
-    root.querySelectorAll(selector).forEach((node) => node.remove());
-  }
-
-  // Resolve URLs before anything is unwrapped, while the elements still exist.
+  // Resolve while the elements still exist, before any unwrapping runs.
   root.querySelectorAll("a[href]").forEach((anchor) => {
     const resolved = resolveUrl(anchor.getAttribute("href"), baseUrl);
     if (resolved) anchor.setAttribute("href", resolved);
@@ -213,7 +250,7 @@ export function cleanContent(
   });
 
   root.querySelectorAll("img").forEach((img) => {
-    // WordPress lazy-loads via data-src / data-orig-file; prefer those over a placeholder.
+    // WordPress lazy-loads via data-* attributes; those beat the placeholder src.
     const candidate =
       img.getAttribute("data-orig-file") ??
       img.getAttribute("data-large-file") ??
@@ -256,10 +293,9 @@ function stripAttributes(root: HTMLElement): void {
   }
 }
 
-/** Drops paragraphs/divs that hold neither text nor media, a common WP artifact. */
 function removeEmptyBlocks(root: HTMLElement): void {
   root.querySelectorAll("p, div, span, section").forEach((node) => {
-    const hasText = (node.textContent ?? "").replace(/ /g, " ").trim();
+    const hasText = (node.textContent ?? "").replace(/\u00a0/g, " ").trim();
     const hasMedia = node.querySelector("img, br, hr, table");
     if (!hasText && !hasMedia) node.remove();
   });
@@ -287,7 +323,6 @@ export function resolveUrl(
   }
 }
 
-/** Pulls the first standalone number out of a URL slug or anchor text, for ordering. */
 export function parseChapterNumber(url: string, text: string): number | null {
   const normalized = normalize(safeDecode(url));
   const patterns = [
@@ -321,28 +356,40 @@ function safeDecode(value: string): string {
 }
 
 /**
- * Collects chapter links from the index page's article, in document order,
- * deduplicated by URL.
+ * Finds chapter links in the index content, in document order, deduplicated by
+ * URL. In broad mode every same-site post link counts — numbered indexes
+ * ("1 2 3 …") carry no keyword at all; otherwise only links that match a chapter
+ * keyword are kept. Broad mode scans a chrome-free copy so the entry header,
+ * sidebars and share buttons cannot leak unrelated links in.
  */
 export function extractChapterLinks(
   article: Element,
   baseUrl: string,
+  includeAllLinks: boolean,
 ): Chapter[] {
   const origin = safeOrigin(baseUrl);
+  const indexKey = linkKey(baseUrl);
+  const scope = includeAllLinks ? withoutJunk(article) : article;
   const seen = new Set<string>();
   const chapters: Chapter[] = [];
 
-  article.querySelectorAll("a[href]").forEach((anchor) => {
+  scope.querySelectorAll("a[href]").forEach((anchor) => {
     const url = resolveUrl(anchor.getAttribute("href"), baseUrl);
-    if (!url || seen.has(url)) return;
+    if (!url || seen.has(linkKey(url))) return;
 
     const linkText = collapseWhitespace(anchor.textContent ?? "");
-    if (!isChapterLink(url, linkText)) return;
-    if (POLICY.sameOriginOnly && origin && safeOrigin(url) !== origin) return;
-    // The index page often links back to itself from a "table of contents" anchor.
-    if (stripTrailingSlash(url) === stripTrailingSlash(baseUrl)) return;
+    if (origin && safeOrigin(url) !== origin) return;
+    // An index may link to itself from a "back to top" anchor, a share button or
+    // a menu entry — that is never a chapter.
+    if (linkKey(url) === indexKey) return;
 
-    seen.add(url);
+    if (includeAllLinks) {
+      if (!linkText || isNonContentLink(url)) return;
+    } else if (!isChapterLink(url, linkText)) {
+      return;
+    }
+
+    seen.add(linkKey(url));
     chapters.push({
       id: `ch-${chapters.length}`,
       url,
@@ -368,7 +415,10 @@ function stripTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
-/** Sorts by parsed chapter number when every entry has one; otherwise keeps page order. */
+/**
+ * Orders by parsed chapter number only when every chapter has one; a single
+ * unnumbered chapter keeps the whole list in document order.
+ */
 export function sortChapters(chapters: Chapter[]): Chapter[] {
   if (chapters.some((chapter) => chapter.order === null)) return chapters;
   return [...chapters].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -379,11 +429,10 @@ export function countWords(html: string): number {
   return text.trim().match(/\S+/g)?.length ?? 0;
 }
 
-/** Parses the index page into story metadata plus its sorted chapter links. */
 export function parseIndexPage(
   html: string,
   finalUrl: string,
-  options: CleanOptions,
+  options: IndexParseOptions,
 ): { meta: StoryMeta; chapters: Chapter[] } {
   const doc = parseHtml(html);
   const article = findArticle(doc);
@@ -393,19 +442,24 @@ export function parseIndexPage(
     );
   }
 
-  const chapters = sortChapters(extractChapterLinks(article, finalUrl));
+  const chapters = sortChapters(
+    extractChapterLinks(article, finalUrl, options.includeAllLinks),
+  );
 
-  // The synopsis is the article with the chapter links removed, so the exported
-  // description page isn't just a wall of dead links.
-  const description = cleanContent(article, finalUrl, {
+  // The synopsis is the article minus its chapter list, so the exported
+  // description page is not a wall of links.
+  const synopsisSource = article.cloneNode(true) as HTMLElement;
+  if (options.includeAllLinks) {
+    removeChapterCarriers(synopsisSource, finalUrl, chapters);
+  } else {
+    removeShortChapterLabels(synopsisSource);
+  }
+  removeEmptyBlocks(synopsisSource);
+
+  const description = cleanContent(synopsisSource, finalUrl, {
     stripImages: options.stripImages,
     stripLinks: true,
   });
-  description.querySelectorAll("li, p").forEach((node) => {
-    const text = collapseWhitespace(node.textContent ?? "");
-    if (text && text.length < 120 && isChapterLink("", text)) node.remove();
-  });
-  removeEmptyBlocks(description);
 
   return {
     meta: {
@@ -420,20 +474,14 @@ export function parseIndexPage(
 }
 
 /**
- * Chapter title as a reader would see it: the post heading on the chapter page.
- * Returns "" when the page names no usable title, so exporters fall back to the
- * index link text ("Chương 12") instead of an arbitrary page heading.
+ * Empty when the page names no usable title, so exporters fall back to the index
+ * link text ("Chương 12") instead of an arbitrary page heading.
  */
 function chapterTitle(doc: Document): string {
   const title = stripProtectedPrefix(extractTitle(doc));
   return title && title.toLowerCase() !== "untitled" ? title : "";
 }
 
-/**
- * Parses a chapter page into its title and cleaned body HTML. When the page is
- * password-protected the body is left empty and `protected` is true instead —
- * there is no story text to clean.
- */
 export function parseChapterPage(
   html: string,
   finalUrl: string,
@@ -441,6 +489,7 @@ export function parseChapterPage(
 ): { title: string; html: string; protected: boolean } {
   const doc = parseHtml(html);
 
+  // A protected page has no story text; callers export a link to the original.
   if (isPasswordProtectedPage(doc)) {
     return { title: chapterTitle(doc), html: "", protected: true };
   }
@@ -450,7 +499,7 @@ export function parseChapterPage(
 
   const cleaned = cleanContent(article, finalUrl, {
     stripImages: options.stripImages,
-    stripLinks: POLICY.stripLinks,
+    stripLinks: true,
   });
   const body = cleaned.innerHTML.trim();
   if (!body) throw new Error("Phần tử <article> rỗng sau khi làm sạch.");

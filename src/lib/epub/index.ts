@@ -23,7 +23,6 @@ class PackageBuilder {
   readonly spine: string[] = [];
   readonly navPoints: NavPoint[] = [];
 
-  /** Registers a content document: manifest entry, reading order and TOC entry. */
   addDocument(id: string, href: string, title: string): void {
     this.manifest.push(
       `<item id="${id}" href="${href}" media-type="application/xhtml+xml"/>`,
@@ -37,15 +36,13 @@ class PackageBuilder {
   }
 }
 
-/** Placeholder chapter body for a page locked behind a password: a clickable link to it. */
+/** Chapter body for a page locked behind a password: a clickable link to it. */
 function lockedBody(chapter: Chapter): string {
   const url = escapeXml(chapter.url);
   return `    <p class="locked">Chương này được bảo vệ bằng mật khẩu trên trang gốc nên nội dung không tải về được. Mở liên kết dưới đây bằng trình duyệt và nhập mật khẩu để đọc tiếp.</p>
     <p class="locked-url"><a href="${url}">${url}</a></p>`;
 }
 
-/**
- * Builds a valid EPUB 3 package (with an EPUB 2 NCX for older readers). */
 export async function buildEpub(
   meta: StoryMeta,
   chapters: Chapter[],
@@ -66,14 +63,13 @@ export async function buildEpub(
   const pkg = new PackageBuilder();
   const images: EmbeddedImage[] = [];
 
-  // Both the synopsis and every chapter body go through the same embedding step,
-  // otherwise their illustrations stay as remote URLs and break offline.
+  // The synopsis and every chapter body share one embedding step, so their
+  // illustrations do not stay as remote URLs that break offline.
   const embed = (html: string) =>
     options.fetchImage
       ? embedImages(html, images, options.fetchImage, options)
       : Promise.resolve(html);
 
-  // ---- Cover ----------------------------------------------------------------
   const cover = await renderCover(meta.title, meta.author);
   if (cover) {
     oebps.file("images/cover.png", cover);
@@ -94,7 +90,6 @@ export async function buildEpub(
     pkg.spine.push('<itemref idref="cover" linear="no"/>');
   }
 
-  // ---- Title / synopsis page ------------------------------------------------
   options.onStatus?.("Đang dựng trang tiêu đề…");
   const synopsis = meta.descriptionHtml
     ? await embed(toXhtmlFragment(meta.descriptionHtml))
@@ -115,15 +110,13 @@ export async function buildEpub(
   );
   pkg.addDocument("titlepage", "title.xhtml", meta.title);
 
-  // ---- Chapters -------------------------------------------------------------
   for (const [index, chapter] of chapters.entries()) {
     const id = `chapter-${String(index + 1).padStart(4, "0")}`;
     const href = `${id}.xhtml`;
     const title = chapter.title || chapter.linkText || `Chương ${index + 1}`;
 
-    // Locked chapters carry no story text; the chapter keeps its place in the
-    // book but points the reader back at the source page, where they can enter
-    // the password themselves.
+    // Locked chapters keep their place but point back at the source page, where
+    // the reader can enter the password themselves.
     const body = chapter.protected
       ? lockedBody(chapter)
       : await embed(toXhtmlFragment(chapter.html ?? ""));
@@ -147,7 +140,6 @@ export async function buildEpub(
     );
   }
 
-  // ---- Navigation -----------------------------------------------------------
   oebps.file(
     "nav.xhtml",
     xhtmlDocument("Mục lục", buildNavBody(pkg.navPoints), meta.language),

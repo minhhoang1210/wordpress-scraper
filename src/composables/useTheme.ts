@@ -5,16 +5,15 @@ export type Theme = "light" | "dark";
 const STORAGE_KEY = "ws-theme";
 
 /**
- * The stored choice wins; otherwise the OS preference decides. Kept in sync with
- * the inline <head> script in index.html so the first paint already uses the
- * right theme.
+ * Stored choice wins, otherwise the OS preference decides. Mirrors the inline
+ * <head> script in index.html so the first paint already uses the right theme.
  */
 function initialTheme(): Theme {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === "light" || stored === "dark") return stored;
   } catch {
-    // localStorage can be unavailable (private mode, disabled cookies); ignore.
+    // localStorage can be unavailable (private mode, disabled cookies).
   }
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches
     ? "dark"
