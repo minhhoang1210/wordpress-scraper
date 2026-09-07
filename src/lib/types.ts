@@ -32,8 +32,6 @@ export interface StoryMeta {
 
 export interface ScrapeOptions {
   stripImages: boolean;
-  /** Keep every non-chrome link on the index page, not only keyword-matching chapters. */
-  includeAllLinks: boolean;
   /** Parallel chapter fetches. */
   concurrency: number;
   /** Pause between each fetch to stay polite to the source server. */
@@ -44,10 +42,7 @@ export interface ScrapeOptions {
 
 export type CleanOptions = Pick<ScrapeOptions, "stripImages">;
 
-export type IndexParseOptions = Pick<
-  ScrapeOptions,
-  "stripImages" | "includeAllLinks"
->;
+export type IndexParseOptions = Pick<ScrapeOptions, "stripImages">;
 
 export interface LogEntry {
   id: number;
