@@ -127,6 +127,7 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
         :chapters="s.chapters.value"
         :disabled="s.busy.value"
         @select-all="s.selectAll"
+        @reorder="s.reorderChapter"
       />
     </PanelSection>
 

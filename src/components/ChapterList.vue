@@ -3,7 +3,10 @@ import { computed, ref } from "vue";
 import type { Chapter, ChapterStatus } from "../lib/types";
 
 const props = defineProps<{ chapters: Chapter[]; disabled: boolean }>();
-const emit = defineEmits<{ selectAll: [value: boolean] }>();
+const emit = defineEmits<{
+  selectAll: [value: boolean];
+  reorder: [chapter: Chapter, toIndex: number];
+}>();
 
 const filter = ref("");
 
@@ -34,6 +37,62 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
   failed: "lỗi",
   skipped: "bỏ qua",
 };
+
+// Drag & drop reordering: the visible list may be filtered, so drop targets are
+// mapped back to positions in the full chapter list before emitting.
+const draggingId = ref<string | null>(null);
+const dropIndex = ref<number | null>(null);
+
+const globalIndex = computed(() => {
+  const map = new Map<string, number>();
+  props.chapters.forEach((chapter, index) => map.set(chapter.id, index));
+  return map;
+});
+
+function onDragStart(chapter: Chapter, event: DragEvent) {
+  if (props.disabled) {
+    event.preventDefault();
+    return;
+  }
+  draggingId.value = chapter.id;
+  event.dataTransfer?.setData("text/plain", chapter.id);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+}
+
+function onDragEnd() {
+  draggingId.value = null;
+  dropIndex.value = null;
+}
+
+function onDragOver(chapter: Chapter, event: DragEvent) {
+  if (!draggingId.value || draggingId.value === chapter.id) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  dropIndex.value = globalIndex.value.get(chapter.id) ?? null;
+}
+
+function onDrop(chapter: Chapter, event: DragEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  const target = globalIndex.value.get(chapter.id);
+  const dragged = props.chapters.find((c) => c.id === draggingId.value);
+  if (dragged && target !== undefined) emit("reorder", dragged, target);
+  onDragEnd();
+}
+
+function onDropEnd(event: DragEvent) {
+  // Dropping past the last visible row moves the chapter to the very end.
+  const dragged = props.chapters.find((c) => c.id === draggingId.value);
+  if (
+    dragged &&
+    dropIndex.value !== null &&
+    dropIndex.value === props.chapters.length - 1
+  ) {
+    event.preventDefault();
+    emit("reorder", dragged, props.chapters.length - 1);
+  }
+  onDragEnd();
+}
 </script>
 
 <template>
@@ -65,12 +124,41 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
 
     <ul
       class="thin-scroll max-h-96 min-h-24 flex-1 space-y-1 overflow-y-auto pr-1"
+      @dragover.prevent
+      @drop="onDropEnd"
     >
       <li
         v-for="chapter in visible"
         :key="chapter.id"
-        class="flex items-center gap-3 rounded-lg border border-transparent bg-app-panel-alt px-3 py-2 hover:border-app-border"
+        draggable="true"
+        class="flex cursor-grab items-center gap-3 rounded-lg border border-transparent bg-app-panel-alt px-3 py-2 hover:border-app-border"
+        :class="[
+          draggingId === chapter.id && 'opacity-40',
+          dropIndex === globalIndex.get(chapter.id) &&
+            draggingId !== chapter.id &&
+            'border-indigo-400',
+        ]"
+        @dragstart="onDragStart(chapter, $event)"
+        @dragend="onDragEnd"
+        @dragover="onDragOver(chapter, $event)"
+        @drop="onDrop(chapter, $event)"
       >
+        <svg
+          class="size-4 shrink-0 cursor-grab text-app-faint"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="9" cy="6" r="1" />
+          <circle cx="15" cy="6" r="1" />
+          <circle cx="9" cy="12" r="1" />
+          <circle cx="15" cy="12" r="1" />
+          <circle cx="9" cy="18" r="1" />
+          <circle cx="15" cy="18" r="1" />
+        </svg>
         <input
           v-model="chapter.selected"
           type="checkbox"
