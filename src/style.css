@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Runtime variables (overridden by .dark) let the app-* utilities flip theme. */
+/* Dark mode is driven by a .dark class on <html>, toggled by the theme switch. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -35,7 +35,6 @@
   --app-scroll: oklch(0.372 0.044 257.287);
 }
 
-/* `inline` resolves the utilities against the runtime variables above. */
 @theme inline {
   --color-app-bg: var(--app-bg);
   --color-app-panel: var(--app-panel);
@@ -52,12 +51,6 @@
   --color-app-scroll: var(--app-scroll);
 }
 
-@theme {
-  --color-ink-800: oklch(0.27 0.02 265);
-  --color-ink-900: oklch(0.21 0.02 265);
-  --color-ink-950: oklch(0.16 0.02 265);
-}
-
 html {
   color-scheme: light;
 }
@@ -68,6 +61,20 @@ html.dark {
 body {
   @apply bg-app-bg text-app-text antialiased;
   margin: 0;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #6366f1;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 
 .thin-scroll::-webkit-scrollbar {

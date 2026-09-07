@@ -64,6 +64,19 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
           />
           Bỏ hình ảnh
         </label>
+        <div class="flex items-center gap-2">
+          <label for="chapter-password" class="shrink-0">
+            Mật khẩu chương bị khoá
+          </label>
+          <input
+            id="chapter-password"
+            v-model="s.chapterPassword.value"
+            type="text"
+            autocomplete="off"
+            placeholder="Mật khẩu"
+            class="min-w-0 flex-1 rounded-lg border border-app-border bg-app-panel-alt px-3 py-1.5 text-sm outline-none focus:border-indigo-400"
+          />
+        </div>
       </div>
     </PanelSection>
 
@@ -183,8 +196,8 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
       </p>
       <p class="mt-3 text-xs text-app-faint">
         Cả hai bản đều mở đầu bằng nội dung trang mục lục, sau đó tới từng
-        chương. Chương nào yêu cầu mật khẩu sẽ có liên kết tới trang gốc thay
-        cho nội dung.
+        chương. Chương cần mật khẩu sẽ tải được nếu bạn đã điền mật khẩu ở bước
+        1; nếu không, chương đó có liên kết tới trang gốc thay cho nội dung.
       </p>
     </PanelSection>
 

@@ -165,6 +165,26 @@ export function isPasswordProtectedPage(doc: Document): boolean {
   );
 }
 
+/** Absolute action URL of the password form, or the blog's default postpass URL. */
+export function passwordFormAction(
+  html: string,
+  baseUrl: string,
+): string | null {
+  const form = parseHtml(html).querySelector(
+    ".post-password-form, form[class*='post-password'], form[action*='postpass']",
+  );
+  const action = form?.getAttribute("action");
+  if (action) {
+    const resolved = resolveUrl(action, baseUrl);
+    if (resolved) return resolved;
+  }
+  try {
+    return `${new URL(baseUrl).origin}/wp-login.php?action=postpass`;
+  } catch {
+    return null;
+  }
+}
+
 /** Localized prefixes WordPress prepends to protected post titles. */
 function stripProtectedPrefix(title: string): string {
   return title

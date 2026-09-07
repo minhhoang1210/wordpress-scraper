@@ -1,6 +1,11 @@
-import { computed, reactive, ref, shallowRef } from "vue";
-import { fetchBinary, fetchPage } from "../lib/fetcher";
-import { countWords, parseChapterPage, parseIndexPage } from "../lib/parser";
+import { computed, reactive, ref, shallowRef, watch } from "vue";
+import { fetchBinary, fetchPage, unlockPostPassword } from "../lib/fetcher";
+import {
+  countWords,
+  parseChapterPage,
+  parseIndexPage,
+  passwordFormAction,
+} from "../lib/parser";
 import { buildEpub } from "../lib/epub";
 import { buildPdf, type PageSize } from "../lib/pdf";
 import { runPool } from "../lib/async";
@@ -39,6 +44,24 @@ export function useScraper() {
 
   let controller: AbortController | null = null;
   let logId = 0;
+
+  // Session state for unlocking WordPress password-protected chapters.
+  const chapterPassword = ref("");
+  let postpassCookie: string | null = null;
+  let unlockFailed = false;
+  let unlockInFlight: Promise<string | null> | null = null;
+
+  watch(chapterPassword, () => {
+    postpassCookie = null;
+    unlockFailed = false;
+    unlockInFlight = null;
+  });
+
+  function resetUnlock() {
+    postpassCookie = null;
+    unlockFailed = false;
+    unlockInFlight = null;
+  }
 
   function log(level: LogEntry["level"], message: string) {
     logs.value.push({ id: logId++, at: Date.now(), level, message });
@@ -85,6 +108,7 @@ export function useScraper() {
     if (!target) return;
 
     const signal = restartController();
+    resetUnlock();
     phase.value = "indexing";
     errorText.value = "";
     busyMessage.value = "Đang tải trang mục lục…";
@@ -162,19 +186,74 @@ export function useScraper() {
     }
   }
 
+  async function unlockChapter(
+    loginUrl: string,
+    password: string,
+    signal: AbortSignal,
+  ): Promise<string | null> {
+    if (postpassCookie) return postpassCookie;
+    if (unlockFailed) return null;
+
+    unlockInFlight ??= unlockPostPassword(loginUrl, password, { signal })
+      .then(
+        (cookie) => {
+          if (cookie) {
+            postpassCookie = cookie;
+            log("success", "Đã mở khoá các chương yêu cầu mật khẩu.");
+          } else {
+            unlockFailed = true;
+            log(
+              "warn",
+              "Không nhận được phiên mở khoá — kiểm tra lại mật khẩu.",
+            );
+          }
+          return cookie;
+        },
+        (error: unknown) => {
+          unlockFailed = true;
+          log("warn", `Không mở khoá được: ${errorMessage(error)}`);
+          return null;
+        },
+      )
+      .finally(() => {
+        unlockInFlight = null;
+      });
+    return unlockInFlight;
+  }
+
   async function scrapeOne(chapter: Chapter, signal: AbortSignal) {
     chapter.status = "fetching";
     try {
-      const { html, finalUrl } = await fetchPage(chapter.url, {
+      const onRetry = (attempt: number, error: Error) =>
+        log(
+          "warn",
+          `Thử lại lần ${attempt} — ${chapter.linkText}: ${error.message}`,
+        );
+      const fetchOptions = {
         retries: options.retries,
         signal,
-        onRetry: (attempt, error) =>
-          log(
-            "warn",
-            `Thử lại lần ${attempt} — ${chapter.linkText}: ${error.message}`,
-          ),
-      });
-      const parsed = parseChapterPage(html, finalUrl, options);
+        onRetry,
+        cookie: postpassCookie ?? undefined,
+      };
+
+      const first = await fetchPage(chapter.url, fetchOptions);
+      let parsed = parseChapterPage(first.html, first.finalUrl, options);
+
+      const password = chapterPassword.value.trim();
+      if (parsed.protected && password) {
+        const loginUrl = passwordFormAction(first.html, first.finalUrl);
+        const cookie = loginUrl
+          ? await unlockChapter(loginUrl, password, signal)
+          : null;
+        if (cookie) {
+          const unlocked = await fetchPage(chapter.url, {
+            ...fetchOptions,
+            cookie,
+          });
+          parsed = parseChapterPage(unlocked.html, unlocked.finalUrl, options);
+        }
+      }
+
       chapter.title = parsed.title;
       chapter.protected = parsed.protected;
       chapter.html = parsed.html;
@@ -182,7 +261,9 @@ export function useScraper() {
       if (parsed.protected) {
         log(
           "warn",
-          `${chapter.linkText}: chương yêu cầu mật khẩu — sẽ chèn liên kết tới trang gốc thay cho nội dung.`,
+          password
+            ? `${chapter.linkText}: không mở khoá được với mật khẩu đã nhập — sẽ chèn liên kết tới trang gốc.`
+            : `${chapter.linkText}: chương yêu cầu mật khẩu — sẽ chèn liên kết tới trang gốc thay cho nội dung.`,
         );
       }
       chapter.status = "done";
@@ -292,6 +373,7 @@ export function useScraper() {
     exporting,
     options,
     pdfOptions,
+    chapterPassword,
     selected,
     fetched,
     failed,

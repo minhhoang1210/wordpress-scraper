@@ -1,15 +1,17 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 /**
- * Same-origin passthrough: GET /api/fetch?url=<encoded url>. WordPress.com and
- * most self-hosted WordPress sites serve pages without CORS headers, so the
- * browser cannot fetch them directly. The body passes through untouched (text or
- * binary) and the post-redirect URL is reported via the `x-final-url` header so
- * relative links resolve correctly.
+ * Same-origin passthrough for targets that lack CORS headers. Two request shapes:
+ *
+ * - GET /api/fetch?url=…&cookie=… forwards a page or asset and reports the
+ *   post-redirect URL in `x-final-url`.
+ * - POST /api/fetch?url=<wp-login postpass>&… with a JSON body `{ fields }` submits
+ *   the WordPress post-password form and returns the session cookie in
+ *   `x-set-cookie`. The cookie is what unlocks protected posts; the browser cannot
+ *   set the `Cookie` header itself, so it is relayed as a query parameter.
  *
  * On Vercel this file is picked up automatically at /api/fetch; locally,
- * server/proxy.ts mounts `handle` on the Vite dev/preview server. It has no
- * relative imports so the serverless bundler has nothing extra to resolve.
+ * server/proxy.ts mounts `handle` on the Vite dev/preview server.
  */
 
 const BLOCKED_HOSTS =
@@ -27,10 +29,63 @@ const UPSTREAM_HEADERS = {
 
 const UPSTREAM_TIMEOUT_MS = 20_000;
 
+/** POSTing is only allowed for the password form, never arbitrary forms. */
+const LOGIN_FIELD_NAMES = new Set([
+  "post_password",
+  "_wp_http_referer",
+  "redirect_to",
+  "testcookie",
+  "wp-submit",
+]);
+
 function fail(res: ServerResponse, status: number, message: string) {
   res.statusCode = status;
   res.setHeader("content-type", "application/json; charset=utf-8");
   res.end(JSON.stringify({ error: message }));
+}
+
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk) => chunks.push(chunk as Buffer));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+/** Header values must stay single-line to be safe to forward. */
+function cleanValue(value: string | null | undefined): string | undefined {
+  return value && !/[\r\n]/.test(value) ? value : undefined;
+}
+
+function isPostPasswordTarget(parsed: URL): boolean {
+  return (
+    /\/wp-login\.php$/i.test(parsed.pathname) &&
+    parsed.searchParams.get("action") === "postpass"
+  );
+}
+
+function parseLoginFields(raw: string): Record<string, string> | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const fields = (parsed as { fields?: unknown }).fields;
+  if (!fields || typeof fields !== "object" || Array.isArray(fields))
+    return null;
+
+  const result: Record<string, string> = {};
+  for (const [name, value] of Object.entries(
+    fields as Record<string, unknown>,
+  )) {
+    if (!LOGIN_FIELD_NAMES.has(name) || typeof value !== "string") return null;
+    const cleaned = cleanValue(value);
+    if (!cleaned) return null;
+    result[name] = cleaned;
+  }
+  return result.post_password ? result : null;
 }
 
 export async function handle(req: IncomingMessage, res: ServerResponse) {
@@ -58,10 +113,41 @@ export async function handle(req: IncomingMessage, res: ServerResponse) {
     );
   }
 
+  const isLogin = req.method === "POST";
+  let fields: Record<string, string> | null = null;
+  if (isLogin) {
+    if (!isPostPasswordTarget(parsed)) {
+      return fail(res, 403, "POST chỉ hỗ trợ wp-login.php?action=postpass.");
+    }
+    let raw: string;
+    try {
+      raw = await readBody(req);
+    } catch {
+      return fail(res, 400, "Không đọc được nội dung yêu cầu.");
+    }
+    fields = parseLoginFields(raw);
+    if (!fields) {
+      return fail(
+        res,
+        400,
+        "Body phải là JSON { fields: { post_password: … } }.",
+      );
+    }
+  }
+
+  const headers: Record<string, string> = {
+    ...UPSTREAM_HEADERS,
+    accept: req.headers.accept ?? "*/*",
+  };
+  const cookie = cleanValue(requested.searchParams.get("cookie"));
+  if (cookie) headers.cookie = cookie;
+
   try {
     const upstream = await fetch(parsed.toString(), {
-      headers: { ...UPSTREAM_HEADERS, accept: req.headers.accept ?? "*/*" },
-      redirect: "follow",
+      method: isLogin ? "POST" : "GET",
+      headers,
+      body: fields ? new URLSearchParams(fields) : undefined,
+      redirect: isLogin ? "manual" : "follow",
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
@@ -73,7 +159,19 @@ export async function handle(req: IncomingMessage, res: ServerResponse) {
       upstream.headers.get("content-type") ?? "application/octet-stream",
     );
     res.setHeader("x-final-url", upstream.url || parsed.toString());
-    res.setHeader("access-control-expose-headers", "x-final-url");
+    const exposed = ["x-final-url"];
+    const setCookies =
+      (
+        upstream.headers as Headers & { getSetCookie?: () => string[] }
+      ).getSetCookie?.() ??
+      (upstream.headers.get("set-cookie")
+        ? [upstream.headers.get("set-cookie")!]
+        : []);
+    if (setCookies.length > 0) {
+      res.setHeader("x-set-cookie", setCookies.join("; "));
+      exposed.push("x-set-cookie");
+    }
+    res.setHeader("access-control-expose-headers", exposed.join(", "));
     res.setHeader("cache-control", "no-store");
     res.end(body);
   } catch (error) {

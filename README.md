@@ -18,8 +18,10 @@ Mở http://localhost:5173.
    trang (lọc bỏ liên kết vỏ ngoài: chuyên mục, tác giả, chia sẻ…), không bắt
    buộc liên kết phải chứa từ khoá, nên trang chỉ đánh số `1, 2, 3…` vẫn quét
    đủ.
-2. **Tải chương** — chọn chương rồi bấm tải. Chương lỗi tải lại được riêng;
-   chương cần mật khẩu sẽ xuất ra liên kết tới trang gốc thay vì nội dung.
+2. **Tải chương** — chọn chương rồi bấm tải. Chương lỗi tải lại được riêng.
+   Nếu truyện có chương bị khoá mật khẩu, điền mật khẩu vào ô _Mật khẩu chương
+   bị khoá_ ở bước 1 để app mở khoá và tải nội dung bình thường; bỏ trống thì
+   chương bị khoá sẽ xuất ra liên kết tới trang gốc thay vì nội dung.
 3. **Xuất** — tải xuống bản EPUB hoặc PDF.
 
 ## Vì sao cần proxy?
@@ -27,7 +29,10 @@ Mở http://localhost:5173.
 WordPress không gửi header CORS nên trình duyệt không gọi thẳng được. Endpoint
 `GET /api/fetch?url=…` chuyển tiếp yêu cầu: chạy trên server Vite khi phát triển
 local và là serverless function khi deploy. Nó chỉ nhận scheme `http(s)` và chặn
-các host nội bộ/loopback.
+các host nội bộ/loopback. Để mở khoá chương bị bảo vệ, proxy nhận thêm `POST`
+tới `wp-login.php?action=postpass` (chỉ riêng form mật khẩu của WordPress) và trả
+về cookie phiên qua header `x-set-cookie`. Mật khẩu và cookie chỉ đi qua proxy
+của bạn, không lưu trữ lâu dài.
 
 ## Triển khai lên Vercel
 
