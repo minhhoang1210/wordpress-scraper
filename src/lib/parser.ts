@@ -6,28 +6,9 @@ import type {
 } from "./types";
 import { collapseWhitespace, normalize } from "./text";
 
-/** Matched accent-insensitively against both URL slugs (hyphenated) and anchor text (spaced). */
-const CHAPTER_KEYWORDS = [
-  "chuong",
-  "chap",
-  "chapter",
-  "phien-ngoai",
-  "ngoai-truyen",
-  "vi-thanh",
-];
-
-const KEYWORD_VARIANTS = [
-  ...new Set(
-    CHAPTER_KEYWORDS.flatMap((keyword) => [
-      keyword,
-      keyword.split("-").join(" "),
-    ]),
-  ),
-];
-
 /**
- * In broad discovery mode keyword filtering cannot reject these, so archive
- * listings, feeds, admin endpoints and asset files are excluded up front.
+ * Keyword filtering cannot reject these, so archive listings, feeds, admin
+ * endpoints and asset files are excluded up front.
  */
 const NON_CONTENT_PATH = [
   /^\/(?:author|category|date|feed|page|tag|trackback|type|wp-admin|wp-content|wp-json|wp-login\.php|xmlrpc\.php)(?:\/|$)/i,
@@ -63,14 +44,6 @@ function withoutJunk(source: Element): HTMLElement {
     clone.querySelectorAll(selector).forEach((node) => node.remove());
   }
   return clone;
-}
-
-/** Drops short list items/paragraphs that name a chapter ("Chương 12"). */
-function removeShortChapterLabels(root: HTMLElement): void {
-  root.querySelectorAll("li, p").forEach((node) => {
-    const text = collapseWhitespace(node.textContent ?? "");
-    if (text && text.length < 120 && isChapterLink("", text)) node.remove();
-  });
 }
 
 /**
@@ -341,11 +314,6 @@ export function parseChapterNumber(url: string, text: string): number | null {
   return fromText ? Number.parseFloat(fromText[1]) : null;
 }
 
-export function isChapterLink(url: string, text: string): boolean {
-  const haystack = `${normalize(safeDecode(url))} ${normalize(text)}`;
-  return KEYWORD_VARIANTS.some((keyword) => haystack.includes(keyword));
-}
-
 /** decodeURIComponent throws on malformed escapes, which a stray href can contain. */
 function safeDecode(value: string): string {
   try {
@@ -357,19 +325,18 @@ function safeDecode(value: string): string {
 
 /**
  * Finds chapter links in the index content, in document order, deduplicated by
- * URL. In broad mode every same-site post link counts — numbered indexes
- * ("1 2 3 …") carry no keyword at all; otherwise only links that match a chapter
- * keyword are kept. Broad mode scans a chrome-free copy so the entry header,
- * sidebars and share buttons cannot leak unrelated links in.
+ * URL. Every same-site post link counts — numbered indexes ("1 2 3 …") carry no
+ * keyword at all — while chrome links (archive listings, feeds, admin endpoints,
+ * asset files) are filtered out. The scan runs on a chrome-free copy so the
+ * entry header, sidebars and share buttons cannot leak unrelated links in.
  */
 export function extractChapterLinks(
   article: Element,
   baseUrl: string,
-  includeAllLinks: boolean,
 ): Chapter[] {
   const origin = safeOrigin(baseUrl);
   const indexKey = linkKey(baseUrl);
-  const scope = includeAllLinks ? withoutJunk(article) : article;
+  const scope = withoutJunk(article);
   const seen = new Set<string>();
   const chapters: Chapter[] = [];
 
@@ -378,22 +345,18 @@ export function extractChapterLinks(
     if (!url || seen.has(linkKey(url))) return;
 
     const linkText = collapseWhitespace(anchor.textContent ?? "");
+    if (!linkText) return;
     if (origin && safeOrigin(url) !== origin) return;
     // An index may link to itself from a "back to top" anchor, a share button or
     // a menu entry — that is never a chapter.
     if (linkKey(url) === indexKey) return;
-
-    if (includeAllLinks) {
-      if (!linkText || isNonContentLink(url)) return;
-    } else if (!isChapterLink(url, linkText)) {
-      return;
-    }
+    if (isNonContentLink(url)) return;
 
     seen.add(linkKey(url));
     chapters.push({
       id: `ch-${chapters.length}`,
       url,
-      linkText: linkText || url,
+      linkText,
       order: parseChapterNumber(url, linkText),
       selected: true,
       status: "pending",
@@ -442,18 +405,12 @@ export function parseIndexPage(
     );
   }
 
-  const chapters = sortChapters(
-    extractChapterLinks(article, finalUrl, options.includeAllLinks),
-  );
+  const chapters = sortChapters(extractChapterLinks(article, finalUrl));
 
   // The synopsis is the article minus its chapter list, so the exported
   // description page is not a wall of links.
   const synopsisSource = article.cloneNode(true) as HTMLElement;
-  if (options.includeAllLinks) {
-    removeChapterCarriers(synopsisSource, finalUrl, chapters);
-  } else {
-    removeShortChapterLabels(synopsisSource);
-  }
+  removeChapterCarriers(synopsisSource, finalUrl, chapters);
   removeEmptyBlocks(synopsisSource);
 
   const description = cleanContent(synopsisSource, finalUrl, {

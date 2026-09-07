@@ -17,8 +17,7 @@ Mở http://localhost:5173.
 1. **Tìm chương** — dán URL trang mục lục. App quét mọi liên kết bài viết trong
    trang (lọc bỏ liên kết vỏ ngoài: chuyên mục, tác giả, chia sẻ…), không bắt
    buộc liên kết phải chứa từ khoá, nên trang chỉ đánh số `1, 2, 3…` vẫn quét
-   đủ. Bỏ tích _Lấy mọi liên kết trên trang_ nếu chỉ muốn nhận liên kết chứa
-   `chuong`, `chap`, `chapter`, `phien-ngoai`, `ngoai-truyen`, `vi-thanh`.
+   đủ.
 2. **Tải chương** — chọn chương rồi bấm tải. Chương lỗi tải lại được riêng;
    chương cần mật khẩu sẽ xuất ra liên kết tới trang gốc thay vì nội dung.
 3. **Xuất** — tải xuống bản EPUB hoặc PDF.

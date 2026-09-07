@@ -27,9 +27,6 @@ export function useScraper() {
 
   const options = reactive<ScrapeOptions>({
     stripImages: false,
-    // Broad discovery is on by default: numbered chapter lists ("1 2 3 …") carry
-    // no keyword to match, and chrome links are filtered out separately.
-    includeAllLinks: true,
     concurrency: 4,
     delayMs: 250,
     retries: 2,
