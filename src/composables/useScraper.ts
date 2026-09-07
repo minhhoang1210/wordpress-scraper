@@ -270,6 +270,17 @@ export function useScraper() {
     chapters.value.forEach((chapter) => (chapter.selected = value));
   }
 
+  /** Moves a chapter to a new index; exporters follow this display order. */
+  function reorderChapter(chapter: Chapter, toIndex: number) {
+    const list = chapters.value;
+    const fromIndex = list.indexOf(chapter);
+    if (fromIndex === -1) return;
+    const clamped = Math.max(0, Math.min(list.length - 1, toIndex));
+    if (clamped === fromIndex) return;
+    list.splice(fromIndex, 1);
+    list.splice(clamped, 0, chapter);
+  }
+
   return {
     indexUrl,
     phase,
@@ -295,5 +306,6 @@ export function useScraper() {
     exportEpub,
     exportPdf,
     selectAll,
+    reorderChapter,
   };
 }
