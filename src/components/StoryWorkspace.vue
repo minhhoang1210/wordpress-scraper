@@ -139,7 +139,8 @@ const canDownload = computed(
       :chapters="scraper.chapters.value"
       :disabled="scraper.busy.value"
       @select-all="scraper.selectAll"
-      @reorder="scraper.reorderChapter"
+      @move-before="scraper.moveChapterBefore"
+      @shift="scraper.shiftChapter"
     />
   </PanelSection>
 

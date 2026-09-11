@@ -25,8 +25,11 @@ truyện đang tải dở ở tab kia.
      chương bất kỳ. Danh sách chương lấy trực tiếp từ API, đúng thứ tự tác giả
      đăng.
 2. **Tải chương** — chọn chương rồi bấm tải; chương lỗi tải lại được riêng.
-   Kéo thả để đổi thứ tự trước khi xuất.
-3. **Xuất** — tải xuống bản EPUB hoặc PDF.
+3. **Đổi thứ tự** (nếu cần) — bấm tay cầm `⋮⋮` của một chương để **nhấc** nó
+   lên, cuộn hoặc lọc thoải mái, rồi bấm vào chương muốn chèn lên trước (hoặc
+   _Chèn xuống cuối danh sách_). `Esc` để bỏ nhấc. Bằng bàn phím: Tab tới tay
+   cầm, `Enter` để nhấc, `↑` `↓` để dịch từng bậc.
+4. **Xuất** — tải xuống bản EPUB hoặc PDF.
 
 ### Chương bị khoá
 
