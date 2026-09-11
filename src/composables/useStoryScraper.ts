@@ -218,17 +218,32 @@ export function useStoryScraper(source: StorySource) {
     for (const chapter of chapters.value) chapter.selected = value;
   }
 
-  /** Moves a chapter to a new index; exporters follow this display order. */
-  function reorderChapter(chapter: Chapter, toIndex: number): void {
+  /** Puts a chapter directly before `target`; a null target moves it last. */
+  function moveChapterBefore(chapter: Chapter, target: Chapter | null): void {
     const list = chapters.value;
-    const fromIndex = list.indexOf(chapter);
-    if (fromIndex === -1) return;
+    const from = list.indexOf(chapter);
+    const before = target ? list.indexOf(target) : list.length;
+    if (from === -1 || before === -1) return;
 
-    const clamped = Math.max(0, Math.min(list.length - 1, toIndex));
-    if (clamped === fromIndex) return;
+    // Removing the chapter first shifts every later position down by one.
+    moveChapterTo(chapter, before > from ? before - 1 : before);
+  }
 
-    list.splice(fromIndex, 1);
-    list.splice(clamped, 0, chapter);
+  function shiftChapter(chapter: Chapter, offset: number): void {
+    const from = chapters.value.indexOf(chapter);
+    if (from === -1) return;
+    moveChapterTo(chapter, from + offset);
+  }
+
+  /** Exporters follow this display order, so reordering is a plain list move. */
+  function moveChapterTo(chapter: Chapter, index: number): void {
+    const list = chapters.value;
+    const from = list.indexOf(chapter);
+    const to = Math.max(0, Math.min(list.length - 1, index));
+    if (from === -1 || to === from) return;
+
+    list.splice(from, 1);
+    list.splice(to, 0, chapter);
   }
 
   function contextFor(signal: AbortSignal): DownloadContext {
@@ -285,6 +300,7 @@ export function useStoryScraper(source: StorySource) {
     exportEpub: () => runExport("epub"),
     exportPdf: () => runExport("pdf"),
     selectAll,
-    reorderChapter,
+    moveChapterBefore,
+    shiftChapter,
   };
 }

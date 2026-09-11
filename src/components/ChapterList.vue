@@ -1,24 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { Chapter, ChapterStatus } from "../lib/types";
 
 const props = defineProps<{ chapters: Chapter[]; disabled: boolean }>();
 const emit = defineEmits<{
   selectAll: [value: boolean];
-  reorder: [chapter: Chapter, toIndex: number];
+  moveBefore: [chapter: Chapter, target: Chapter | null];
+  shift: [chapter: Chapter, offset: number];
 }>();
-
-const filter = ref("");
-
-const visible = computed(() => {
-  const needle = filter.value.trim().toLowerCase();
-  if (!needle) return props.chapters;
-  return props.chapters.filter(
-    (chapter) =>
-      (chapter.title ?? chapter.label).toLowerCase().includes(needle) ||
-      chapter.url.toLowerCase().includes(needle),
-  );
-});
 
 const STATUS_STYLES: Record<ChapterStatus, string> = {
   pending:
@@ -35,60 +24,110 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
   failed: "lỗi",
 };
 
-// Drag & drop reordering: the visible list may be filtered, so drop targets are
-// mapped back to positions in the full chapter list before emitting.
-const draggingId = ref<string | null>(null);
-const dropIndex = ref<number | null>(null);
+const titleOf = (chapter: Chapter) => chapter.title ?? chapter.label;
+const positionOf = (chapter: Chapter) => props.chapters.indexOf(chapter) + 1;
 
-const globalIndex = computed(() => {
-  const map = new Map<string, number>();
-  props.chapters.forEach((chapter, index) => map.set(chapter.id, index));
-  return map;
+const filter = ref("");
+
+const visible = computed(() => {
+  const needle = filter.value.trim().toLowerCase();
+  if (!needle) return props.chapters;
+  return props.chapters.filter(
+    (chapter) =>
+      titleOf(chapter).toLowerCase().includes(needle) ||
+      chapter.url.toLowerCase().includes(needle),
+  );
 });
 
-function onDragStart(chapter: Chapter, event: DragEvent) {
-  if (props.disabled) {
-    event.preventDefault();
-    return;
+/**
+ * Reordering is pick-up-then-insert rather than drag & drop: a picked chapter
+ * stays picked while the reader scrolls or filters, and every step works from
+ * the keyboard.
+ */
+const pickedId = ref<string | null>(null);
+const insertBeforeId = ref<string | null>(null);
+
+const picked = computed(
+  () => props.chapters.find((chapter) => chapter.id === pickedId.value) ?? null,
+);
+
+const isPicked = (chapter: Chapter) => chapter.id === pickedId.value;
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) cancelPick();
+  },
+);
+
+// Escape has to work even when the reader picked a chapter with the mouse and
+// focus sits outside the list.
+watch(picked, (chapter) => {
+  if (chapter) window.addEventListener("keydown", onGlobalKeydown);
+  else window.removeEventListener("keydown", onGlobalKeydown);
+});
+onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown));
+
+function onGlobalKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape") cancelPick();
+}
+
+function cancelPick(): void {
+  pickedId.value = null;
+  insertBeforeId.value = null;
+}
+
+function onHandleClick(chapter: Chapter): void {
+  if (props.disabled) return;
+  if (picked.value && !isPicked(chapter)) return insertBefore(chapter);
+  pickedId.value = isPicked(chapter) ? null : chapter.id;
+  insertBeforeId.value = null;
+}
+
+function onRowClick(chapter: Chapter): void {
+  if (!picked.value) return;
+  if (isPicked(chapter)) cancelPick();
+  else insertBefore(chapter);
+}
+
+/** A null target sends the picked chapter to the end of the list. */
+function insertBefore(target: Chapter | null): void {
+  const chapter = picked.value;
+  if (!chapter) return;
+  if (!target || target.id !== chapter.id) {
+    emit("moveBefore", chapter, target);
   }
-  draggingId.value = chapter.id;
-  event.dataTransfer?.setData("text/plain", chapter.id);
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  cancelPick();
 }
 
-function onDragEnd() {
-  draggingId.value = null;
-  dropIndex.value = null;
+function onHandleArrow(chapter: Chapter, offset: number): void {
+  if (!isPicked(chapter) || props.disabled) return;
+  emit("shift", chapter, offset);
 }
 
-function onDragOver(chapter: Chapter, event: DragEvent) {
-  if (!draggingId.value || draggingId.value === chapter.id) return;
-  event.preventDefault();
-  if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-  dropIndex.value = globalIndex.value.get(chapter.id) ?? null;
+function markInsertTarget(chapter: Chapter): void {
+  if (picked.value && !isPicked(chapter)) insertBeforeId.value = chapter.id;
 }
 
-function onDrop(chapter: Chapter, event: DragEvent) {
-  event.preventDefault();
-  event.stopPropagation();
-  const target = globalIndex.value.get(chapter.id);
-  const dragged = props.chapters.find((c) => c.id === draggingId.value);
-  if (dragged && target !== undefined) emit("reorder", dragged, target);
-  onDragEnd();
+function clearInsertTarget(): void {
+  insertBeforeId.value = null;
 }
 
-function onDropEnd(event: DragEvent) {
-  // Dropping past the last visible row moves the chapter to the very end.
-  const dragged = props.chapters.find((c) => c.id === draggingId.value);
-  if (
-    dragged &&
-    dropIndex.value !== null &&
-    dropIndex.value === props.chapters.length - 1
-  ) {
-    event.preventDefault();
-    emit("reorder", dragged, props.chapters.length - 1);
+function handleLabel(chapter: Chapter): string {
+  if (isPicked(chapter)) return `Bỏ nhấc “${titleOf(chapter)}”`;
+  if (picked.value) {
+    return `Chèn “${titleOf(picked.value)}” vào trước “${titleOf(chapter)}”`;
   }
-  onDragEnd();
+  return `Nhấc “${titleOf(chapter)}” để đổi thứ tự`;
+}
+
+function rowClass(chapter: Chapter): string {
+  if (isPicked(chapter)) {
+    return "border-indigo-400 bg-indigo-500/10";
+  }
+  return picked.value
+    ? "cursor-pointer border-transparent hover:border-indigo-400"
+    : "border-transparent hover:border-app-border";
 }
 </script>
 
@@ -119,54 +158,100 @@ function onDropEnd(event: DragEvent) {
       </button>
     </div>
 
+    <p
+      v-if="picked"
+      role="status"
+      aria-live="polite"
+      class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-indigo-400/40 bg-indigo-500/10 px-3 py-2 text-xs text-app-text"
+    >
+      <span class="min-w-0 flex-1">
+        Đang nhấc <strong>{{ titleOf(picked) }}</strong> (vị trí
+        {{ positionOf(picked) }}/{{ chapters.length }}) — bấm vào chương muốn
+        chèn lên trước, hoặc dùng ↑ ↓ để dịch từng bậc.
+      </span>
+      <button
+        type="button"
+        class="shrink-0 rounded-lg border border-app-border-strong px-2 py-1 text-xs text-app-text hover:bg-app-hover"
+        @click="cancelPick"
+      >
+        Bỏ nhấc (Esc)
+      </button>
+    </p>
+
     <ul
       class="thin-scroll max-h-96 min-h-24 flex-1 space-y-1 overflow-y-auto pr-1"
-      @dragover.prevent
-      @drop="onDropEnd"
     >
       <li
         v-for="chapter in visible"
         :key="chapter.id"
-        draggable="true"
-        class="flex cursor-grab items-center gap-3 rounded-lg border border-transparent bg-app-panel-alt px-3 py-2 hover:border-app-border"
-        :class="[
-          draggingId === chapter.id && 'opacity-40',
-          dropIndex === globalIndex.get(chapter.id) &&
-            draggingId !== chapter.id &&
-            'border-indigo-400',
-        ]"
-        @dragstart="onDragStart(chapter, $event)"
-        @dragend="onDragEnd"
-        @dragover="onDragOver(chapter, $event)"
-        @drop="onDrop(chapter, $event)"
+        class="relative flex items-center gap-3 rounded-lg border bg-app-panel-alt px-3 py-2"
+        :class="rowClass(chapter)"
+        @click="onRowClick(chapter)"
+        @mouseenter="markInsertTarget(chapter)"
+        @mouseleave="clearInsertTarget"
       >
-        <svg
-          class="size-4 shrink-0 cursor-grab text-app-faint"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          aria-hidden="true"
+        <span
+          v-if="insertBeforeId === chapter.id"
+          class="pointer-events-none absolute top-0 right-2 left-2 h-0.5 rounded-full bg-indigo-400"
+        />
+
+        <button
+          type="button"
+          class="shrink-0 cursor-pointer rounded p-0.5 text-app-faint hover:bg-app-hover hover:text-app-text disabled:cursor-default disabled:opacity-40"
+          :class="isPicked(chapter) && 'bg-indigo-500/20 text-indigo-500'"
+          :disabled="disabled"
+          :aria-pressed="isPicked(chapter)"
+          :aria-label="handleLabel(chapter)"
+          :title="handleLabel(chapter)"
+          @click.stop="onHandleClick(chapter)"
+          @focus="markInsertTarget(chapter)"
+          @blur="clearInsertTarget"
+          @keydown.up.prevent="onHandleArrow(chapter, -1)"
+          @keydown.down.prevent="onHandleArrow(chapter, 1)"
         >
-          <circle cx="9" cy="6" r="1" />
-          <circle cx="15" cy="6" r="1" />
-          <circle cx="9" cy="12" r="1" />
-          <circle cx="15" cy="12" r="1" />
-          <circle cx="9" cy="18" r="1" />
-          <circle cx="15" cy="18" r="1" />
-        </svg>
+          <svg
+            v-if="picked && !isPicked(chapter)"
+            class="size-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 4h14" />
+            <path d="M12 20V9" />
+            <path d="M8 12l4-4 4 4" />
+          </svg>
+          <svg
+            v-else
+            class="size-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="9" cy="6" r="1" />
+            <circle cx="15" cy="6" r="1" />
+            <circle cx="9" cy="12" r="1" />
+            <circle cx="15" cy="12" r="1" />
+            <circle cx="9" cy="18" r="1" />
+            <circle cx="15" cy="18" r="1" />
+          </svg>
+        </button>
+
         <input
           v-model="chapter.selected"
           type="checkbox"
           class="size-4 shrink-0 accent-indigo-500"
           :disabled="disabled"
+          @click.stop
         />
         <div class="min-w-0 flex-1">
-          <p
-            class="truncate text-sm text-app-text"
-            :title="chapter.title ?? chapter.label"
-          >
+          <p class="truncate text-sm text-app-text" :title="titleOf(chapter)">
             <span
               v-if="chapter.order !== null"
               class="mr-1.5 text-xs text-indigo-500 dark:text-indigo-400"
@@ -187,7 +272,7 @@ function onDropEnd(event: DragEvent) {
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            {{ chapter.title ?? chapter.label }}
+            {{ titleOf(chapter) }}
           </p>
           <p class="truncate text-xs text-app-faint" :title="chapter.url">
             {{ chapter.error ?? chapter.url }}
@@ -206,6 +291,17 @@ function onDropEnd(event: DragEvent) {
           {{ chapter.locked ? "khoá" : STATUS_LABELS[chapter.status] }}
         </span>
       </li>
+
+      <li v-if="picked">
+        <button
+          type="button"
+          class="w-full cursor-pointer rounded-lg border border-dashed border-app-border-strong px-3 py-2 text-xs text-app-muted hover:border-indigo-400 hover:text-app-text"
+          @click="insertBefore(null)"
+        >
+          Chèn xuống cuối danh sách
+        </button>
+      </li>
+
       <li
         v-if="visible.length === 0"
         class="px-3 py-6 text-center text-sm text-app-faint"
