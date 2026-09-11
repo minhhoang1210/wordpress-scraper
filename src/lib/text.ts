@@ -35,3 +35,13 @@ export function errorMessage(error: unknown): string {
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
+
+/** Splits a `|`-separated password box into the passwords to try, in order. */
+export function splitPasswords(value: string): string[] {
+  const seen = new Set<string>();
+  for (const part of value.split("|")) {
+    const password = part.trim();
+    if (password) seen.add(password);
+  }
+  return [...seen];
+}

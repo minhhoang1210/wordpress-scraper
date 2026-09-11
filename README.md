@@ -20,8 +20,11 @@ Mở http://localhost:5173.
    đủ.
 2. **Tải chương** — chọn chương rồi bấm tải. Chương lỗi tải lại được riêng.
    Nếu truyện có chương bị khoá mật khẩu, điền mật khẩu vào ô _Mật khẩu chương
-   bị khoá_ ở bước 1 để app mở khoá và tải nội dung bình thường; bỏ trống thì
-   chương bị khoá sẽ xuất ra liên kết tới trang gốc thay vì nội dung.
+   bị khoá_ ở bước 1 để app mở khoá và tải nội dung bình thường. Mỗi chương có
+   thể dùng một mật khẩu khác nhau: nhập nhiều mật khẩu cách nhau bằng dấu `|`
+   (ví dụ `abc | def | ghi`) thì mỗi chương bị khoá sẽ được thử lần lượt từng
+   mật khẩu cho tới khi mở được. Bỏ trống thì chương bị khoá sẽ xuất ra liên
+   kết tới trang gốc thay vì nội dung.
 3. **Xuất** — tải xuống bản EPUB hoặc PDF.
 
 ## Vì sao cần proxy?

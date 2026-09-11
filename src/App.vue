@@ -64,18 +64,21 @@ const canScrape = computed(() => s.selected.value.length > 0 && !s.busy.value);
           />
           Bỏ hình ảnh
         </label>
-        <div class="flex items-center gap-2">
-          <label for="chapter-password" class="shrink-0">
-            Mật khẩu chương bị khoá
-          </label>
-          <input
-            id="chapter-password"
-            v-model="s.chapterPassword.value"
-            type="text"
-            autocomplete="off"
-            placeholder="Mật khẩu"
-            class="min-w-0 flex-1 rounded-lg border border-app-border bg-app-panel-alt px-3 py-1.5 text-sm outline-none focus:border-indigo-400"
-          />
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center gap-2">
+            <label for="chapter-password" class="shrink-0">
+              Mật khẩu chương bị khoá
+            </label>
+            <input
+              id="chapter-password"
+              v-model="s.chapterPassword.value"
+              type="text"
+              autocomplete="off"
+              placeholder="abc | def | ghi"
+              aria-describedby="chapter-password-hint"
+              class="min-w-0 flex-1 rounded-lg border border-app-border bg-app-panel-alt px-3 py-1.5 text-sm outline-none focus:border-indigo-400"
+            />
+          </div>
         </div>
       </div>
     </PanelSection>

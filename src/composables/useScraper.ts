@@ -1,5 +1,10 @@
 import { computed, reactive, ref, shallowRef, watch } from "vue";
-import { fetchBinary, fetchPage, unlockPostPassword } from "../lib/fetcher";
+import {
+  fetchBinary,
+  fetchPage,
+  unlockPostPassword,
+  type FetchOptions,
+} from "../lib/fetcher";
 import {
   countWords,
   parseChapterPage,
@@ -10,13 +15,21 @@ import { buildEpub } from "../lib/epub";
 import { buildPdf, type PageSize } from "../lib/pdf";
 import { runPool } from "../lib/async";
 import { downloadBlob } from "../lib/download";
-import { errorMessage, formatBytes, isAbortError, slugify } from "../lib/text";
+import {
+  errorMessage,
+  formatBytes,
+  isAbortError,
+  slugify,
+  splitPasswords,
+} from "../lib/text";
 import type { Chapter, LogEntry, ScrapeOptions, StoryMeta } from "../lib/types";
 
 export type Phase =
   "idle" | "indexing" | "ready" | "scraping" | "done" | "error";
 
 export type ExportFormat = "epub" | "pdf";
+
+type ParsedChapter = ReturnType<typeof parseChapterPage>;
 
 const MAX_LOG_ENTRIES = 500;
 
@@ -45,22 +58,18 @@ export function useScraper() {
   let controller: AbortController | null = null;
   let logId = 0;
 
-  // Session state for unlocking WordPress password-protected chapters.
   const chapterPassword = ref("");
-  let postpassCookie: string | null = null;
-  let unlockFailed = false;
-  let unlockInFlight: Promise<string | null> | null = null;
+  const passwords = computed(() => splitPasswords(chapterPassword.value));
+  const unlockCache = new Map<string, Promise<string | null>>();
+  const unlockWarned = new Set<string>();
+  let preferredCookie: string | null = null;
 
-  watch(chapterPassword, () => {
-    postpassCookie = null;
-    unlockFailed = false;
-    unlockInFlight = null;
-  });
+  watch(chapterPassword, resetUnlock);
 
   function resetUnlock() {
-    postpassCookie = null;
-    unlockFailed = false;
-    unlockInFlight = null;
+    unlockCache.clear();
+    unlockWarned.clear();
+    preferredCookie = null;
   }
 
   function log(level: LogEntry["level"], message: string) {
@@ -186,39 +195,61 @@ export function useScraper() {
     }
   }
 
-  async function unlockChapter(
+  function requestCookie(
     loginUrl: string,
     password: string,
     signal: AbortSignal,
   ): Promise<string | null> {
-    if (postpassCookie) return postpassCookie;
-    if (unlockFailed) return null;
+    const key = `${loginUrl}\n${password}`;
+    const cached = unlockCache.get(key);
+    if (cached) return cached;
 
-    unlockInFlight ??= unlockPostPassword(loginUrl, password, { signal })
-      .then(
-        (cookie) => {
-          if (cookie) {
-            postpassCookie = cookie;
-            log("success", "Đã mở khoá các chương yêu cầu mật khẩu.");
-          } else {
-            unlockFailed = true;
-            log(
-              "warn",
-              "Không nhận được phiên mở khoá — kiểm tra lại mật khẩu.",
-            );
-          }
-          return cookie;
-        },
-        (error: unknown) => {
-          unlockFailed = true;
-          log("warn", `Không mở khoá được: ${errorMessage(error)}`);
-          return null;
-        },
-      )
-      .finally(() => {
-        unlockInFlight = null;
-      });
-    return unlockInFlight;
+    const pending = unlockPostPassword(loginUrl, password, { signal }).catch(
+      (error: unknown) => {
+        unlockCache.delete(key);
+        if (isAbortError(error)) throw error;
+        if (!unlockWarned.has(key)) {
+          unlockWarned.add(key);
+          log("warn", `Không gửi được mật khẩu: ${errorMessage(error)}`);
+        }
+        return null;
+      },
+    );
+    unlockCache.set(key, pending);
+    return pending;
+  }
+
+  /**
+   * Tries each password until one reveals the chapter. WordPress hands out a
+   * cookie for wrong passwords too, so only a refetch proves an unlock.
+   */
+  async function unlockChapter(
+    chapter: Chapter,
+    loginUrl: string,
+    usedCookie: string | null,
+    fetchOptions: FetchOptions,
+    signal: AbortSignal,
+  ): Promise<ParsedChapter | null> {
+    for (const [index, password] of passwords.value.entries()) {
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+
+      const cookie = await requestCookie(loginUrl, password, signal);
+      if (!cookie || cookie === usedCookie) continue;
+
+      const page = await fetchPage(chapter.url, { ...fetchOptions, cookie });
+      const parsed = parseChapterPage(page.html, page.finalUrl, options);
+      if (parsed.protected) continue;
+
+      if (preferredCookie !== cookie) {
+        preferredCookie = cookie;
+        log(
+          "success",
+          `Mở khoá bằng mật khẩu #${index + 1} — ${chapter.linkText}.`,
+        );
+      }
+      return parsed;
+    }
+    return null;
   }
 
   async function scrapeOne(chapter: Chapter, signal: AbortSignal) {
@@ -229,29 +260,23 @@ export function useScraper() {
           "warn",
           `Thử lại lần ${attempt} — ${chapter.linkText}: ${error.message}`,
         );
-      const fetchOptions = {
+      const cookie = preferredCookie;
+      const fetchOptions: FetchOptions = {
         retries: options.retries,
         signal,
         onRetry,
-        cookie: postpassCookie ?? undefined,
+        cookie: cookie ?? undefined,
       };
 
       const first = await fetchPage(chapter.url, fetchOptions);
       let parsed = parseChapterPage(first.html, first.finalUrl, options);
 
-      const password = chapterPassword.value.trim();
-      if (parsed.protected && password) {
+      if (parsed.protected && passwords.value.length > 0) {
         const loginUrl = passwordFormAction(first.html, first.finalUrl);
-        const cookie = loginUrl
-          ? await unlockChapter(loginUrl, password, signal)
+        const unlocked = loginUrl
+          ? await unlockChapter(chapter, loginUrl, cookie, fetchOptions, signal)
           : null;
-        if (cookie) {
-          const unlocked = await fetchPage(chapter.url, {
-            ...fetchOptions,
-            cookie,
-          });
-          parsed = parseChapterPage(unlocked.html, unlocked.finalUrl, options);
-        }
+        if (unlocked) parsed = unlocked;
       }
 
       chapter.title = parsed.title;
@@ -259,10 +284,11 @@ export function useScraper() {
       chapter.html = parsed.html;
       chapter.wordCount = countWords(parsed.html);
       if (parsed.protected) {
+        const tried = passwords.value.length;
         log(
           "warn",
-          password
-            ? `${chapter.linkText}: không mở khoá được với mật khẩu đã nhập — sẽ chèn liên kết tới trang gốc.`
+          tried > 0
+            ? `${chapter.linkText}: không mở khoá được với ${tried} mật khẩu đã nhập — sẽ chèn liên kết tới trang gốc.`
             : `${chapter.linkText}: chương yêu cầu mật khẩu — sẽ chèn liên kết tới trang gốc thay cho nội dung.`,
         );
       }
