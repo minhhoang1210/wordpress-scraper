@@ -15,7 +15,7 @@ const visible = computed(() => {
   if (!needle) return props.chapters;
   return props.chapters.filter(
     (chapter) =>
-      (chapter.title ?? chapter.linkText).toLowerCase().includes(needle) ||
+      (chapter.title ?? chapter.label).toLowerCase().includes(needle) ||
       chapter.url.toLowerCase().includes(needle),
   );
 });
@@ -26,8 +26,6 @@ const STATUS_STYLES: Record<ChapterStatus, string> = {
   fetching: "bg-amber-500/20 text-amber-700 animate-pulse dark:text-amber-300",
   done: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300",
   failed: "bg-rose-500/20 text-rose-700 dark:text-rose-300",
-  skipped:
-    "bg-slate-400/20 text-slate-500 dark:bg-slate-700/40 dark:text-slate-500",
 };
 
 const STATUS_LABELS: Record<ChapterStatus, string> = {
@@ -35,7 +33,6 @@ const STATUS_LABELS: Record<ChapterStatus, string> = {
   fetching: "đang tải",
   done: "xong",
   failed: "lỗi",
-  skipped: "bỏ qua",
 };
 
 // Drag & drop reordering: the visible list may be filtered, so drop targets are
@@ -168,7 +165,7 @@ function onDropEnd(event: DragEvent) {
         <div class="min-w-0 flex-1">
           <p
             class="truncate text-sm text-app-text"
-            :title="chapter.title ?? chapter.linkText"
+            :title="chapter.title ?? chapter.label"
           >
             <span
               v-if="chapter.order !== null"
@@ -177,7 +174,7 @@ function onDropEnd(event: DragEvent) {
               #{{ chapter.order }}
             </span>
             <svg
-              v-if="chapter.protected"
+              v-if="chapter.locked"
               class="mr-1 inline size-3.5 -translate-y-px shrink-0 text-app-muted"
               viewBox="0 0 24 24"
               fill="none"
@@ -185,12 +182,12 @@ function onDropEnd(event: DragEvent) {
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
-              aria-label="Chương yêu cầu mật khẩu"
+              aria-label="Không tải được nội dung chương"
             >
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            {{ chapter.title ?? chapter.linkText }}
+            {{ chapter.title ?? chapter.label }}
           </p>
           <p class="truncate text-xs text-app-faint" :title="chapter.url">
             {{ chapter.error ?? chapter.url }}
@@ -206,7 +203,7 @@ function onDropEnd(event: DragEvent) {
           class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
           :class="STATUS_STYLES[chapter.status]"
         >
-          {{ chapter.protected ? "khoá" : STATUS_LABELS[chapter.status] }}
+          {{ chapter.locked ? "khoá" : STATUS_LABELS[chapter.status] }}
         </span>
       </li>
       <li
