@@ -9,7 +9,7 @@ const emit = defineEmits<{ select: [id: SourceId] }>();
   <div
     role="tablist"
     aria-label="Nguồn truyện"
-    class="mb-5 flex gap-1 rounded-xl border border-app-border bg-app-panel p-1 shadow-lg shadow-app-shadow"
+    class="flex shrink-0 border-b border-app-border"
   >
     <button
       v-for="source in sources"
@@ -17,11 +17,11 @@ const emit = defineEmits<{ select: [id: SourceId] }>();
       type="button"
       role="tab"
       :aria-selected="source.id === active"
-      class="flex-1 cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition"
+      class="flex-1 cursor-pointer border-b-2 px-4 py-3 text-sm transition-colors"
       :class="
         source.id === active
-          ? 'bg-indigo-500 text-white'
-          : 'text-app-muted hover:bg-app-hover hover:text-app-text'
+          ? 'border-app-accent font-medium text-app-strong'
+          : 'border-transparent text-app-muted hover:text-app-text'
       "
       @click="emit('select', source.id)"
     >

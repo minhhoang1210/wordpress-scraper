@@ -27,7 +27,6 @@ type ZipFolder = JSZipType;
 
 const COVER_IMAGE_ID = "cover-image";
 
-/** Accumulates the three parallel lists an EPUB package needs. */
 class EpubPackage {
   readonly manifest: string[] = [];
   readonly spine: string[] = [];
@@ -168,7 +167,6 @@ async function writeChapters(
   }
 }
 
-/** Body for a chapter whose text could not be read: a link to the original page. */
 function lockedBody(chapter: Chapter): string {
   const url = escapeXml(chapter.url);
   return `    <p class="locked">Không tải được nội dung chương này. Mở liên kết dưới đây để đọc trên trang gốc.</p>

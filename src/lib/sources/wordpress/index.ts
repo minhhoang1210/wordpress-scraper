@@ -178,12 +178,12 @@ export const wordpressSource: StorySource = {
   name: "WordPress",
   urlPlaceholder: "https://ten-mien.wordpress.com/ten-truyen/",
   urlHint:
-    "Dán liên kết trang mục lục. Mọi liên kết bài viết trong trang đều được quét, nên mục lục chỉ đánh số “1, 2, 3…” vẫn nhận đủ chương.",
+    "Dán liên kết trang mục lục. Mọi liên kết bài viết trong trang đều được quét.",
   fetchPolicy: { concurrency: 4, delayMs: 250, retries: 2 },
   credentialField: {
     label: "Mật khẩu chương bị khoá",
     placeholder: "abc | def | ghi",
-    hint: "Có nhiều mật khẩu thì cách nhau bằng dấu |, mỗi chương sẽ được thử lần lượt cho tới khi mở được. Để trống thì chương bị khoá chỉ có liên kết tới trang gốc.",
+    hint: "Nếu để trống thì chương bị khoá chỉ có liên kết tới trang gốc.",
   },
   createSession: () => new WordpressSession(),
 };

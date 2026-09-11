@@ -4,38 +4,50 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --app-bg: oklch(0.984 0.003 247.858);
-  --app-panel: oklch(1 0 0);
-  --app-panel-alt: oklch(0.968 0.007 247.896);
-  --app-strong: oklch(0.208 0.042 265.755);
-  --app-text: oklch(0.372 0.044 257.287);
-  --app-muted: oklch(0.554 0.046 257.417);
-  --app-faint: oklch(0.704 0.04 256.788);
-  --app-border: oklch(0.929 0.013 255.508);
-  --app-border-strong: oklch(0.84 0.007 247.9);
-  --app-hover: rgba(15, 23, 42, 0.05);
-  --app-track: rgba(15, 23, 42, 0.1);
-  --app-shadow: rgba(15, 23, 42, 0.06);
-  --app-scroll: oklch(0.84 0.007 247.9);
+  --app-bg: oklch(0.974 0.008 168);
+  --app-panel: oklch(0.995 0.003 168);
+  --app-panel-alt: oklch(0.952 0.012 168);
+  --app-strong: oklch(0.24 0.03 190);
+  --app-text: oklch(0.38 0.022 185);
+  --app-muted: oklch(0.485 0.022 182);
+  --app-faint: oklch(0.545 0.02 180);
+  --app-border: oklch(0.9 0.014 172);
+  --app-border-strong: oklch(0.79 0.02 174);
+  --app-hover: oklch(0.46 0.085 178 / 0.08);
+  --app-accent: oklch(0.46 0.085 178);
+  --app-accent-soft: oklch(0.46 0.085 178 / 0.12);
+  --app-accent-ink: oklch(0.985 0.008 175);
+  --app-alert: oklch(0.5 0.17 30);
+  --app-alert-soft: oklch(0.5 0.17 30 / 0.1);
+  --app-work: oklch(0.52 0.1 70);
+  --app-scroll: oklch(0.82 0.02 174);
 }
 
 .dark {
-  --app-bg: oklch(0.16 0.02 265);
-  --app-panel: oklch(0.2 0.02 265);
-  --app-panel-alt: oklch(0.17 0.02 265);
-  --app-strong: oklch(1 0 0);
-  --app-text: oklch(0.84 0.007 247.9);
-  --app-muted: oklch(0.704 0.04 256.788);
-  --app-faint: oklch(0.554 0.046 257.417);
-  --app-border: rgba(255, 255, 255, 0.1);
-  --app-border-strong: rgba(255, 255, 255, 0.15);
-  --app-hover: rgba(255, 255, 255, 0.05);
-  --app-track: rgba(255, 255, 255, 0.1);
-  --app-shadow: rgba(0, 0, 0, 0.2);
-  --app-scroll: oklch(0.372 0.044 257.287);
+  --app-bg: oklch(0.188 0.021 190);
+  --app-panel: oklch(0.228 0.022 190);
+  --app-panel-alt: oklch(0.162 0.018 190);
+  --app-strong: oklch(0.97 0.008 180);
+  --app-text: oklch(0.855 0.014 180);
+  --app-muted: oklch(0.68 0.018 182);
+  --app-faint: oklch(0.615 0.018 184);
+  --app-border: oklch(0.32 0.022 188);
+  --app-border-strong: oklch(0.43 0.026 186);
+  --app-hover: oklch(0.75 0.1 178 / 0.1);
+  --app-accent: oklch(0.75 0.1 178);
+  --app-accent-soft: oklch(0.75 0.1 178 / 0.16);
+  --app-accent-ink: oklch(0.19 0.03 190);
+  --app-alert: oklch(0.71 0.15 32);
+  --app-alert-soft: oklch(0.71 0.15 32 / 0.15);
+  --app-work: oklch(0.79 0.11 78);
+  --app-scroll: oklch(0.38 0.025 186);
 }
 
 @theme inline {
+  --font-sans:
+    "Be Vietnam Pro", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-serif: "Literata", ui-serif, Georgia, "Times New Roman", serif;
+
   --color-app-bg: var(--app-bg);
   --color-app-panel: var(--app-panel);
   --color-app-panel-alt: var(--app-panel-alt);
@@ -46,8 +58,12 @@
   --color-app-border: var(--app-border);
   --color-app-border-strong: var(--app-border-strong);
   --color-app-hover: var(--app-hover);
-  --color-app-track: var(--app-track);
-  --color-app-shadow: var(--app-shadow);
+  --color-app-accent: var(--app-accent);
+  --color-app-accent-soft: var(--app-accent-soft);
+  --color-app-accent-ink: var(--app-accent-ink);
+  --color-app-alert: var(--app-alert);
+  --color-app-alert-soft: var(--app-alert-soft);
+  --color-app-work: var(--app-work);
   --color-app-scroll: var(--app-scroll);
 }
 
@@ -59,27 +75,60 @@ html.dark {
 }
 
 body {
-  @apply bg-app-bg text-app-text antialiased;
+  @apply bg-app-bg font-sans text-app-text antialiased;
   margin: 0;
 }
 
 ::selection {
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--app-accent-soft);
 }
 
-input[type="checkbox"],
-input[type="radio"] {
-  accent-color: #6366f1;
+input[type="checkbox"] {
+  accent-color: var(--app-accent);
 }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--app-accent);
   outline-offset: 2px;
 }
 
+@layer components {
+  .field {
+    @apply w-full rounded-sm border border-app-border bg-app-panel-alt px-3 py-2
+      text-sm text-app-text outline-none placeholder:text-app-faint;
+  }
+  .field:focus {
+    @apply border-app-accent;
+  }
+  .field:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center rounded-sm
+      border border-transparent px-3.5 py-2 text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-accent {
+    @apply bg-app-accent text-app-accent-ink;
+  }
+  .btn-accent:hover:not(:disabled) {
+    @apply bg-app-accent/85;
+  }
+  .btn-outline {
+    @apply border-app-border-strong text-app-text;
+  }
+  .btn-outline:hover:not(:disabled) {
+    @apply bg-app-hover;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-[13px] font-normal;
+  }
+}
+
 .thin-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
 }
 .thin-scroll::-webkit-scrollbar-thumb {
   @apply rounded-full;

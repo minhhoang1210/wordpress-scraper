@@ -28,8 +28,7 @@ truyện đang tải dở ở tab kia.
    được.
 3. **Đổi thứ tự** (nếu cần): bấm tay cầm `⋮⋮` của một chương để **nhấc** nó
    lên, cuộn hoặc lọc thoải mái, rồi bấm vào chương bạn muốn chèn nó lên trước,
-   hoặc bấm _Chèn xuống cuối danh sách_. Bấm `Esc` để bỏ nhấc. Nếu dùng bàn
-   phím: Tab tới tay cầm, `Enter` để nhấc, `↑` `↓` để nhích từng bậc.
+   hoặc bấm _Chèn xuống cuối danh sách_. Bấm `Esc` để bỏ nhấc.
 4. **Xuất**: tải xuống bản EPUB hoặc PDF.
 
 ### Chương bị khoá

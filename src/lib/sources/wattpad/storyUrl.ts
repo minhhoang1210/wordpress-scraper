@@ -4,7 +4,6 @@ const WATTPAD_HOST = /(^|\.)wattpad\.com$/;
 const STORY_PATH = /^\/story\/(\d+)/;
 const PART_PATH = /^\/(\d+)/;
 
-/** A Wattpad link points either at a story's landing page or at one part of it. */
 export type WattpadTarget =
   { kind: "story"; storyId: string } | { kind: "part"; partId: string };
 

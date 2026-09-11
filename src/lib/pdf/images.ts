@@ -61,7 +61,6 @@ export async function preloadImages(
   return store;
 }
 
-/** Rasterises arbitrary image bytes (PNG/WebP/GIF/JPEG) to a drawable JPEG. */
 async function decodeImage(
   url: string,
   fetchImage: ImageFetcher,

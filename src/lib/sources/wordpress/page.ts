@@ -2,7 +2,6 @@ import { parseHtml } from "../../html";
 import { collapseWhitespace } from "../../text";
 import { resolveUrl } from "../../url";
 
-/** Theme chrome that surrounds post content but is never part of the story. */
 export const THEME_JUNK = [
   "header.entry-header",
   ".entry-meta",

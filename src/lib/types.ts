@@ -1,6 +1,5 @@
 export type ChapterStatus = "pending" | "fetching" | "done" | "failed";
 
-/** A chapter listed by a source, plus the result of downloading it. */
 export interface Chapter {
   id: string;
   url: string;
@@ -30,7 +29,6 @@ export interface StoryMeta {
   coverUrl?: string;
 }
 
-/** Reader-facing download settings. */
 export interface ScrapeSettings {
   stripImages: boolean;
 }
@@ -52,7 +50,6 @@ export type ImageFetcher = (
   url: string,
 ) => Promise<{ data: Uint8Array; mimeType: string }>;
 
-/** Progress reporting shared by both exporters. */
 export interface ExportHooks {
   onStatus?: (message: string) => void;
   onWarning?: (message: string) => void;

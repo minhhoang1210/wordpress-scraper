@@ -2,7 +2,6 @@ import type { Chapter, ScrapeSettings, StoryMeta } from "../types";
 
 export type SourceId = "wordpress" | "wattpad";
 
-/** Stands in when a source publishes no title for the story. */
 export const UNTITLED_STORY = "Truyện không tên";
 
 /** An optional secret the reader types in to unlock content on a source. */
@@ -12,7 +11,6 @@ export interface CredentialField {
   hint: string;
 }
 
-/** How hard a source may be hit; each source picks what its servers tolerate. */
 export interface FetchPolicy {
   concurrency: number;
   delayMs: number;
@@ -31,7 +29,6 @@ export interface ChapterContent {
   locked: boolean;
 }
 
-/** The fetch environment of one download run. */
 export interface DownloadContext extends ScrapeSettings {
   signal: AbortSignal;
   retries: number;

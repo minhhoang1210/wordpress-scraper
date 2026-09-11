@@ -1,7 +1,6 @@
 import type { RequestOptions } from "../http";
 import type { DownloadContext } from "./types";
 
-/** Fetch options for one request of a run, reporting retries to the activity log. */
 export function requestOptions(
   context: DownloadContext,
   what: string,

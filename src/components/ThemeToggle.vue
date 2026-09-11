@@ -7,25 +7,42 @@ const { theme, toggle } = useTheme();
 <template>
   <button
     type="button"
-    role="switch"
-    :aria-checked="theme === 'dark'"
     :aria-label="
       theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'
     "
-    class="flex shrink-0 cursor-pointer items-center outline-none"
     :title="
       theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'
     "
+    class="flex size-8 cursor-pointer items-center justify-center rounded-sm text-app-muted transition-colors hover:bg-app-hover hover:text-app-text"
     @click="toggle"
   >
-    <span
-      class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200"
-      :class="theme === 'dark' ? 'bg-indigo-500' : 'bg-app-border-strong'"
+    <svg
+      v-if="theme === 'dark'"
+      class="size-4.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.75"
+      stroke-linecap="round"
+      aria-hidden="true"
     >
-      <span
-        class="absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200"
-        :class="theme === 'dark' && 'translate-x-5'"
+      <circle cx="12" cy="12" r="4" />
+      <path
+        d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"
       />
-    </span>
+    </svg>
+    <svg
+      v-else
+      class="size-4.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.75"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
+    </svg>
   </button>
 </template>

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import SourceTabs from "./components/SourceTabs.vue";
-import StoryWorkspace from "./components/StoryWorkspace.vue";
+import StoryChapters from "./components/StoryChapters.vue";
+import StoryLink from "./components/StoryLink.vue";
+import StorySettings from "./components/StorySettings.vue";
 import ThemeToggle from "./components/ThemeToggle.vue";
 import { useStoryScraper } from "./composables/useStoryScraper";
 import { DEFAULT_SOURCE_ID, STORY_SOURCES, type SourceId } from "./lib/sources";
@@ -18,26 +20,47 @@ const activeScraper = computed(
 </script>
 
 <template>
-  <div class="mx-auto min-h-screen max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-    <header class="mb-8 flex items-start justify-between gap-4">
-      <div class="min-w-0">
-        <h1 class="text-2xl font-semibold text-app-strong sm:text-3xl">
+  <div class="flex min-h-screen flex-col lg:h-screen lg:min-h-0">
+    <header
+      class="flex h-14 shrink-0 items-center gap-4 border-b border-app-border px-5"
+    >
+      <div class="flex min-w-0 items-baseline gap-3">
+        <h1 class="font-serif text-[17px] font-medium text-app-strong">
           Trình tải truyện
         </h1>
-        <p class="mt-2 max-w-2xl text-sm text-app-muted">
-          Chọn nguồn, dán liên kết truyện, rồi tải về bản EPUB hoặc PDF. Tất cả
-          đều chạy ngay trong trình duyệt của bạn.
+        <p class="hidden truncate text-[13px] text-app-faint sm:block">
+          EPUB và PDF từ WordPress hoặc Wattpad
         </p>
       </div>
-      <ThemeToggle />
+      <div class="ml-auto">
+        <ThemeToggle />
+      </div>
     </header>
 
-    <SourceTabs
-      :sources="STORY_SOURCES"
-      :active="activeSourceId"
-      @select="activeSourceId = $event"
-    />
+    <!-- `contents` lets the rail's two halves sit either side of the chapter
+         list on a phone, while staying one column on a wide screen. -->
+    <main class="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div
+        class="thin-scroll contents lg:flex lg:w-84 lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-r lg:border-app-border"
+      >
+        <div class="order-1 bg-app-panel lg:order-none">
+          <SourceTabs
+            :sources="STORY_SOURCES"
+            :active="activeSourceId"
+            @select="activeSourceId = $event"
+          />
+          <StoryLink :key="activeSourceId" :scraper="activeScraper" />
+        </div>
+        <div class="order-3 bg-app-panel lg:order-none">
+          <StorySettings :key="activeSourceId" :scraper="activeScraper" />
+        </div>
+      </div>
 
-    <StoryWorkspace :key="activeSourceId" :scraper="activeScraper" />
+      <StoryChapters
+        :key="activeSourceId"
+        :scraper="activeScraper"
+        class="order-2 min-h-0 min-w-0 flex-1 lg:order-none"
+      />
+    </main>
   </div>
 </template>

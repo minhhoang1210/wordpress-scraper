@@ -19,7 +19,6 @@ export type Phase =
 
 export type StoryScraper = ReturnType<typeof useStoryScraper>;
 
-/** Drives one source from its URL box to a finished EPUB or PDF. */
 export function useStoryScraper(source: StorySource) {
   const log = useActivityLog();
 
@@ -227,21 +226,8 @@ export function useStoryScraper(source: StorySource) {
     if (from === -1 || before === -1) return;
 
     // Removing the chapter first shifts every later position down by one.
-    moveChapterTo(chapter, before > from ? before - 1 : before);
-  }
-
-  function shiftChapter(chapter: Chapter, offset: number): void {
-    const from = chapters.value.indexOf(chapter);
-    if (from === -1) return;
-    moveChapterTo(chapter, from + offset);
-  }
-
-  /** Exporters follow this display order, so reordering is a plain list move. */
-  function moveChapterTo(chapter: Chapter, index: number): void {
-    const list = chapters.value;
-    const from = list.indexOf(chapter);
-    const to = Math.max(0, Math.min(list.length - 1, index));
-    if (from === -1 || to === from) return;
+    const to = before > from ? before - 1 : before;
+    if (to === from) return;
 
     list.splice(from, 1);
     list.splice(to, 0, chapter);
@@ -302,6 +288,5 @@ export function useStoryScraper(source: StorySource) {
     exportPdf: () => runExport("pdf"),
     selectAll,
     moveChapterBefore,
-    shiftChapter,
   };
 }

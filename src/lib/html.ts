@@ -4,7 +4,6 @@ const domParser = new DOMParser();
 
 const NON_BREAKING_SPACE = /\u00a0/g;
 
-/** Nodes that never carry story text, whatever the source. */
 const STRUCTURAL_JUNK = [
   "script",
   "style",
@@ -39,7 +38,6 @@ export function parseHtml(html: string): Document {
   return domParser.parseFromString(html, "text/html");
 }
 
-/** A detached element wrapping an HTML fragment, safe to mutate. */
 export function parseFragment(html: string): HTMLElement {
   const element = document.createElement("div");
   element.innerHTML = html;
@@ -50,7 +48,6 @@ export function countWords(html: string): number {
   return parseFragment(html).textContent?.trim().match(/\S+/g)?.length ?? 0;
 }
 
-/** Detached copy of `source` with chrome nodes removed. */
 export function withoutJunk(
   source: Element,
   extraSelectors: readonly string[] = [],

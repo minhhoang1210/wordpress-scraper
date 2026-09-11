@@ -166,8 +166,7 @@ export const wattpadSource: StorySource = {
   id: "wattpad",
   name: "Wattpad",
   urlPlaceholder: "https://www.wattpad.com/story/123456789-ten-truyen",
-  urlHint:
-    "Dán liên kết truyện hoặc liên kết một chương bất kỳ. Danh sách chương lấy trực tiếp từ API của Wattpad, đúng thứ tự tác giả đăng.",
+  urlHint: "Dán liên kết truyện hoặc liên kết một chương bất kỳ.",
   fetchPolicy: { concurrency: 3, delayMs: 200, retries: 2 },
   createSession: () => new WattpadSession(),
 };
