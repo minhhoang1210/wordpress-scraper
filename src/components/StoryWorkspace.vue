@@ -49,7 +49,7 @@ const canDownload = computed(
           type="checkbox"
           class="size-4 accent-indigo-500"
         />
-        Bỏ hình ảnh (kể cả ảnh bìa)
+        Không tải hình ảnh (kể cả ảnh bìa)
       </label>
 
       <div v-if="credentialField" class="flex flex-col gap-1.5">
@@ -84,7 +84,7 @@ const canDownload = computed(
   <PanelSection
     v-if="scraper.meta.value"
     title="2 · Danh sách chương"
-    :subtitle="`${scraper.meta.value.title} — tìm thấy ${scraper.chapters.value.length} chương, đã chọn ${scraper.selected.value.length}`"
+    :subtitle="`“${scraper.meta.value.title}” có ${scraper.chapters.value.length} chương, đã chọn ${scraper.selected.value.length}`"
     class="mb-5"
   >
     <div class="mb-4 flex flex-wrap items-center gap-3">
@@ -147,7 +147,7 @@ const canDownload = computed(
   <PanelSection
     v-if="scraper.downloaded.value.length > 0"
     title="3 · Tải xuống"
-    subtitle="EPUB hoặc PDF được tạo từ nội dung đã trích xuất."
+    subtitle="Tạo file từ những chương vừa tải về."
     class="mb-5"
   >
     <div class="flex flex-wrap items-end gap-4">
@@ -195,14 +195,14 @@ const canDownload = computed(
       {{ scraper.statusMessage.value }}
     </p>
     <p class="mt-3 text-xs text-app-faint">
-      Cả hai bản mở đầu bằng phần giới thiệu, sau đó tới từng chương. Bìa EPUB
-      lấy theo thứ tự: ảnh bìa do nguồn công bố, rồi ảnh đầu tiên tải được trong
-      truyện, cuối cùng là bìa tự vẽ từ tên truyện. Chương không tải được nội
-      dung sẽ có liên kết tới trang gốc thay cho nội dung.
+      Cả hai bản đều mở đầu bằng phần giới thiệu rồi tới từng chương. Bìa EPUB
+      lấy ảnh bìa của nguồn nếu có, không thì lấy ảnh đầu tiên tải được trong
+      truyện, cuối cùng mới tự vẽ bìa từ tên truyện. Chương nào không tải được
+      thì thay bằng liên kết tới trang gốc.
     </p>
   </PanelSection>
 
-  <PanelSection title="Log">
+  <PanelSection title="Nhật ký">
     <ActivityLog :entries="scraper.logs.value" />
   </PanelSection>
 </template>

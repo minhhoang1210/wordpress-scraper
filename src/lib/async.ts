@@ -9,7 +9,7 @@ export const sleep = (ms: number) =>
 
 /**
  * Runs `task` over every item with a bounded number of workers, picking items up
- * in order. A rejected `task` aborts the pool — callers must handle their own
+ * in order. A rejected `task` aborts the pool, so callers must handle their own
  * item-level failures.
  */
 export async function runPool<T>(

@@ -102,7 +102,7 @@ function describeJsonError(response: Response, body: string): string {
   try {
     const parsed = JSON.parse(body) as { message?: string; error?: string };
     const detail = parsed.message ?? parsed.error;
-    if (detail) return `${describeStatus(response)} — ${detail}`;
+    if (detail) return `${describeStatus(response)}: ${detail}`;
   } catch {
     // Not JSON; the status alone is all the detail there is.
   }
@@ -113,7 +113,7 @@ async function withRetries<T>(
   attempt: () => Promise<T>,
   { retries = 2, signal, onRetry }: RequestOptions,
 ): Promise<T> {
-  let lastError: Error = new Error("Chưa thực hiện lần tải nào.");
+  let lastError: Error = new Error("Chưa thử tải lần nào.");
 
   for (let round = 0; round <= retries; round++) {
     if (signal?.aborted) throw abortError();

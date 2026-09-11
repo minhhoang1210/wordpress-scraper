@@ -166,8 +166,8 @@ function rowClass(chapter: Chapter): string {
     >
       <span class="min-w-0 flex-1">
         Đang nhấc <strong>{{ titleOf(picked) }}</strong> (vị trí
-        {{ positionOf(picked) }}/{{ chapters.length }}) — bấm vào chương muốn
-        chèn lên trước, hoặc dùng ↑ ↓ để dịch từng bậc.
+        {{ positionOf(picked) }}/{{ chapters.length }}). Bấm vào chương bạn muốn
+        chèn nó lên trước, hoặc dùng ↑ ↓ để nhích lên xuống từng bậc.
       </span>
       <button
         type="button"
@@ -267,7 +267,7 @@ function rowClass(chapter: Chapter): string {
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
-              aria-label="Không tải được nội dung chương"
+              aria-label="Chương này không tải được nội dung"
             >
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />

@@ -111,7 +111,7 @@ function lockedBlocks(chapter: Chapter): Block[] {
   return [
     {
       type: "paragraph",
-      text: "Không tải được nội dung chương này từ trang gốc. Mở liên kết dưới đây bằng trình duyệt để đọc tiếp:",
+      text: "Không tải được nội dung chương này. Mở liên kết dưới đây để đọc trên trang gốc:",
     },
     { type: "subheading", text: chapter.url },
   ];

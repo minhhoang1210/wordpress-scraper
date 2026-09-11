@@ -15,7 +15,7 @@ function splitPasswords(value: string): string[] {
 /**
  * Password state of one story: the list to try, the session cookie each one
  * yields, and the cookie already known to unlock this blog. WordPress hands out
- * a cookie even for a wrong password, so only a refetch proves an unlock — that
+ * a cookie even for a wrong password, so only a refetch proves an unlock, and that
  * check belongs to the caller.
  */
 export class PasswordSession {
@@ -90,7 +90,7 @@ async function submitPasswordForm(
   if (setCookie) return toCookiePairs(setCookie);
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status} — không mở khoá được`);
+    throw new Error(`HTTP ${response.status}`);
   }
   return null;
 }

@@ -3,12 +3,13 @@ import { parseHtml, sanitize } from "../../html";
 import { fetchProxiedPage } from "../../http";
 import type { Chapter, FetchedPage } from "../../types";
 import { requestOptions } from "../request";
-import type {
-  ChapterContent,
-  DownloadContext,
-  StoryIndex,
-  StorySession,
-  StorySource,
+import {
+  UNTITLED_STORY,
+  type ChapterContent,
+  type DownloadContext,
+  type StoryIndex,
+  type StorySession,
+  type StorySource,
 } from "../types";
 import {
   findChapterLinks,
@@ -42,7 +43,7 @@ class WordpressSession implements StorySession {
 
     return {
       meta: {
-        title: readTitle(doc),
+        title: readTitle(doc) || UNTITLED_STORY,
         author: readAuthor(doc),
         language: readLanguage(doc),
         descriptionHtml: this.readSynopsis(article, page, chapters, context),
@@ -100,7 +101,7 @@ class WordpressSession implements StorySession {
 
       if (passwords.markWorking(cookie)) {
         context.notice(
-          `Mở khoá bằng mật khẩu #${index + 1} — ${chapter.label}.`,
+          `Đã mở khoá ${chapter.label} bằng mật khẩu #${index + 1}.`,
         );
       }
       return content;
@@ -134,7 +135,7 @@ class WordpressSession implements StorySession {
       stripLinks: true,
       junkSelectors: THEME_JUNK,
     }).innerHTML.trim();
-    if (!html) throw new Error("Nội dung chương rỗng sau khi làm sạch.");
+    if (!html) throw new Error("Chương này không có nội dung nào đọc được.");
 
     return { title, html, locked: false };
   }
@@ -168,8 +169,8 @@ class WordpressSession implements StorySession {
 
 function describeLockedChapter(chapter: Chapter, triedCount: number): string {
   return triedCount > 0
-    ? `${chapter.label}: không mở khoá được với ${triedCount} mật khẩu đã nhập — sẽ chèn liên kết tới trang gốc.`
-    : `${chapter.label}: chương yêu cầu mật khẩu — sẽ chèn liên kết tới trang gốc thay cho nội dung.`;
+    ? `${chapter.label}: thử hết ${triedCount} mật khẩu vẫn không mở được, sẽ chèn liên kết tới trang gốc.`
+    : `${chapter.label}: chương này cần mật khẩu, sẽ chèn liên kết tới trang gốc.`;
 }
 
 export const wordpressSource: StorySource = {
@@ -177,12 +178,12 @@ export const wordpressSource: StorySource = {
   name: "WordPress",
   urlPlaceholder: "https://ten-mien.wordpress.com/ten-truyen/",
   urlHint:
-    "Dán liên kết trang mục lục. App quét mọi liên kết bài viết trong trang, nên mục lục chỉ đánh số “1, 2, 3…” vẫn nhận đủ chương.",
+    "Dán liên kết trang mục lục. Mọi liên kết bài viết trong trang đều được quét, nên mục lục chỉ đánh số “1, 2, 3…” vẫn nhận đủ chương.",
   fetchPolicy: { concurrency: 4, delayMs: 250, retries: 2 },
   credentialField: {
     label: "Mật khẩu chương bị khoá",
     placeholder: "abc | def | ghi",
-    hint: "Nhiều mật khẩu cách nhau bằng dấu | — mỗi chương bị khoá sẽ thử lần lượt từng mật khẩu. Bỏ trống thì chương bị khoá xuất ra liên kết tới trang gốc.",
+    hint: "Có nhiều mật khẩu thì cách nhau bằng dấu |, mỗi chương sẽ được thử lần lượt cho tới khi mở được. Để trống thì chương bị khoá chỉ có liên kết tới trang gốc.",
   },
   createSession: () => new WordpressSession(),
 };

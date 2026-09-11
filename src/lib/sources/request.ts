@@ -10,6 +10,6 @@ export function requestOptions(
     retries: context.retries,
     signal: context.signal,
     onRetry: (attempt, error) =>
-      context.warn(`Thử lại ${what} lần ${attempt}: ${error.message}`),
+      context.warn(`Thử lại ${what} (lần ${attempt}): ${error.message}`),
   };
 }

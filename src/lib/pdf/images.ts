@@ -49,7 +49,7 @@ export async function preloadImages(
       try {
         const image = await decodeImage(url, fetchImage);
         if (image) store.set(url, image);
-        else hooks.onWarning?.(`Bỏ qua ảnh (không giải mã được): ${url}`);
+        else hooks.onWarning?.(`Bỏ qua ảnh vì không giải mã được: ${url}`);
       } catch (error) {
         hooks.onWarning?.(`Bỏ qua ảnh ${url}: ${errorMessage(error)}`);
       }

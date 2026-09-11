@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 /**
- * Same-origin passthrough for targets that lack CORS headers — WordPress pages
+ * Same-origin passthrough for targets that lack CORS headers: WordPress pages
  * and every story image. Two request shapes:
  *
  * - GET /api/fetch?url=…&cookie=… forwards a page or asset and reports the
@@ -19,7 +19,7 @@ const BLOCKED_HOSTS =
   /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?)/i;
 
 /**
- * A spoofed Chrome user-agent makes WordPress.com's bot protection return 403 —
+ * A spoofed Chrome user-agent makes WordPress.com's bot protection return 403:
  * a real browser UA arriving over a non-browser TLS handshake looks more
  * suspicious than an unremarkable client.
  */

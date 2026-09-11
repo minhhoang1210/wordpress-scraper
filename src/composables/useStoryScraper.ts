@@ -90,7 +90,7 @@ export function useStoryScraper(source: StorySource) {
       phase.value = "ready";
 
       if (index.chapters.length === 0) {
-        log.warn("Không tìm thấy chương nào ở liên kết này.");
+        log.warn("Không thấy chương nào ở liên kết này.");
         return;
       }
       log.success(
@@ -129,7 +129,7 @@ export function useStoryScraper(source: StorySource) {
       );
 
       if (signal.aborted) {
-        log.warn("Đã huỷ quá trình tải.");
+        log.warn("Đã huỷ tải.");
         phase.value = "ready";
         return;
       }
@@ -137,7 +137,7 @@ export function useStoryScraper(source: StorySource) {
       phase.value = "done";
       reportBatchResult();
     } catch (error) {
-      fail(error, "Quá trình tải bị dừng đột ngột.");
+      fail(error, "Tải bị dừng giữa chừng.");
     }
   }
 
@@ -168,11 +168,12 @@ export function useStoryScraper(source: StorySource) {
   }
 
   function reportBatchResult(): void {
-    const summary =
-      `Tải hoàn tất — ${downloaded.value.length} chương, ` +
-      `${failed.value.length} lỗi, ${totalWords.value.toLocaleString("vi-VN")} từ.`;
-    if (failed.value.length > 0) log.warn(summary);
-    else log.success(summary);
+    const done =
+      `Tải xong ${downloaded.value.length} chương, ` +
+      `tổng ${totalWords.value.toLocaleString("vi-VN")} từ`;
+
+    if (failed.value.length === 0) log.success(`${done}.`);
+    else log.warn(`${done}, còn ${failed.value.length} chương lỗi.`);
   }
 
   const retryFailed = () => downloadChapters(failed.value);

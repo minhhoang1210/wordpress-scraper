@@ -2,12 +2,13 @@ import { parseFragment, sanitize } from "../../html";
 import type { Chapter, StoryMeta } from "../../types";
 import { escapeXml } from "../../xhtml";
 import { requestOptions } from "../request";
-import type {
-  ChapterContent,
-  DownloadContext,
-  StoryIndex,
-  StorySession,
-  StorySource,
+import {
+  UNTITLED_STORY,
+  type ChapterContent,
+  type DownloadContext,
+  type StoryIndex,
+  type StorySession,
+  type StorySource,
 } from "../types";
 import {
   fetchPartTextPage,
@@ -40,7 +41,7 @@ class WattpadSession implements StorySession {
 
     if (story.numParts && parts.length < story.numParts) {
       context.warn(
-        `Truyện có ${story.numParts} chương nhưng API chỉ trả về ${parts.length} — số còn lại là bản nháp hoặc đã bị xoá.`,
+        `Truyện có ${story.numParts} chương nhưng chỉ lấy được ${parts.length}, số còn lại là bản nháp hoặc đã bị xoá.`,
       );
     }
 
@@ -70,7 +71,7 @@ class WattpadSession implements StorySession {
 
     if (!html) {
       context.warn(
-        `${chapter.label}: Wattpad không trả về nội dung — chương có thể bị khoá hoặc thuộc bản trả phí.`,
+        `${chapter.label}: Wattpad không trả về nội dung, có thể chương này bị khoá hoặc thuộc bản trả phí.`,
       );
       return { title: "", html: "", locked: true };
     }
@@ -112,7 +113,7 @@ class WattpadSession implements StorySession {
 
     return fetchStoryIdForPart(
       target.partId,
-      requestOptions(context, "mã truyện"),
+      requestOptions(context, "thông tin chương"),
     );
   }
 }
@@ -136,11 +137,13 @@ function toStoryMeta(
   const languageName = story.language?.name;
   const language = languageCode(languageName);
   if (!language && languageName) {
-    context.warn(`Chưa biết mã ngôn ngữ cho “${languageName}”, dùng “en”.`);
+    context.warn(
+      `Không biết mã ngôn ngữ của “${languageName}”, tạm dùng “en”.`,
+    );
   }
 
   return {
-    title: story.title?.trim() || "Untitled",
+    title: story.title?.trim() || UNTITLED_STORY,
     author: story.user?.name?.trim() || story.user?.username?.trim() || "",
     language: language ?? "en",
     descriptionHtml: toParagraphs(story.description ?? ""),
