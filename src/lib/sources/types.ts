@@ -2,6 +2,9 @@ import type { Chapter, ScrapeSettings, StoryMeta } from "../types";
 
 export type SourceId = "wordpress" | "wattpad";
 
+/** Stands in when a source publishes no title for the story. */
+export const UNTITLED_STORY = "Truyện không tên";
+
 /** An optional secret the reader types in to unlock content on a source. */
 export interface CredentialField {
   label: string;
@@ -38,8 +41,8 @@ export interface DownloadContext extends ScrapeSettings {
 }
 
 /**
- * One story's downloads. Sources keep per-story caches here — unlock cookies,
- * chapter metadata — so nothing leaks between stories.
+ * One story's downloads. Sources keep per-story caches here (unlock cookies,
+ * chapter metadata) so nothing leaks between stories.
  */
 export interface StorySession {
   loadIndex(url: string, context: DownloadContext): Promise<StoryIndex>;

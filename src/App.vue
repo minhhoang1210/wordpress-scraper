@@ -25,8 +25,8 @@ const activeScraper = computed(
           Trình tải truyện
         </h1>
         <p class="mt-2 max-w-2xl text-sm text-app-muted">
-          Chọn nguồn, dán liên kết truyện, rồi tải về bản EPUB hoặc PDF. Mọi
-          bước xử lý chạy ngay trong trình duyệt.
+          Chọn nguồn, dán liên kết truyện, rồi tải về bản EPUB hoặc PDF. Tất cả
+          đều chạy ngay trong trình duyệt của bạn.
         </p>
       </div>
       <ThemeToggle />

@@ -40,7 +40,7 @@ async function loadFont({
   const response = await fetch(`${import.meta.env.BASE_URL}fonts/${file}`);
   if (!response.ok) {
     throw new Error(
-      `Không tải được ${file} (HTTP ${response.status}). Tiếng Việt cần phông Noto Sans trong public/fonts.`,
+      `Không tải được ${file} (HTTP ${response.status}). Tiếng Việt cần font Noto Sans trong public/fonts.`,
     );
   }
   return {

@@ -11,7 +11,7 @@ export type WattpadTarget =
 export function parseWattpadUrl(input: string): WattpadTarget {
   const hostname = hostnameOf(input);
   if (!hostname || !WATTPAD_HOST.test(hostname)) {
-    throw new Error("Liên kết phải thuộc wattpad.com.");
+    throw new Error("Liên kết này không phải của wattpad.com.");
   }
 
   const { pathname } = new URL(input);
@@ -23,7 +23,7 @@ export function parseWattpadUrl(input: string): WattpadTarget {
   if (part) return { kind: "part", partId: part[1] };
 
   throw new Error(
-    "Liên kết Wattpad không nhận dạng được. Dùng liên kết truyện (wattpad.com/story/…) hoặc liên kết một chương.",
+    "Không nhận ra dạng liên kết Wattpad này. Hãy dùng liên kết truyện (wattpad.com/story/…) hoặc liên kết một chương.",
   );
 }
 

@@ -80,12 +80,13 @@ export function findArticle(doc: Document): Element {
   return doc.body;
 }
 
+/** Empty when the page names no title of its own. */
 export function readTitle(doc: Document): string {
   for (const selector of TITLE_SELECTORS) {
     const text = doc.querySelector(selector)?.textContent?.trim();
     if (text) return collapseWhitespace(text);
   }
-  return "Untitled";
+  return "";
 }
 
 export function readAuthor(doc: Document): string {
@@ -106,11 +107,12 @@ export function readLanguage(doc: Document): string {
 
 /**
  * Empty when the page names no usable title, so exporters fall back to the index
- * label ("Chương 12") instead of an arbitrary page heading.
+ * label ("Chương 12") instead of an arbitrary page heading. "Untitled" is
+ * WordPress's own placeholder, never a real chapter title.
  */
 export function readChapterTitle(doc: Document): string {
   const title = readTitle(doc).replace(PROTECTED_PREFIX, "").trim();
-  return title && title.toLowerCase() !== "untitled" ? title : "";
+  return title.toLowerCase() === "untitled" ? "" : title;
 }
 
 export function isPasswordProtected(doc: Document): boolean {

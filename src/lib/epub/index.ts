@@ -171,7 +171,7 @@ async function writeChapters(
 /** Body for a chapter whose text could not be read: a link to the original page. */
 function lockedBody(chapter: Chapter): string {
   const url = escapeXml(chapter.url);
-  return `    <p class="locked">Không tải được nội dung chương này từ trang gốc. Mở liên kết dưới đây bằng trình duyệt để đọc tiếp.</p>
+  return `    <p class="locked">Không tải được nội dung chương này. Mở liên kết dưới đây để đọc trên trang gốc.</p>
     <p class="locked-url"><a href="${url}">${url}</a></p>`;
 }
 

@@ -23,8 +23,8 @@ const NUMBER_IN_TEXT =
 
 /**
  * Chapter links in the index content, in document order, deduplicated by URL.
- * Every same-site post link counts — numbered indexes ("1 2 3 …") carry no
- * keyword at all — while chrome links are filtered out. The scan runs on a
+ * Every same-site post link counts, because numbered indexes ("1 2 3 …") carry
+ * no keyword at all, while chrome links are filtered out. The scan runs on a
  * chrome-free copy so headers, sidebars and share buttons cannot leak links in.
  */
 export function findChapterLinks(article: Element, baseUrl: string): Chapter[] {
