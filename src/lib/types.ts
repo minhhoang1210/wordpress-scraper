@@ -1,21 +1,19 @@
-export type ChapterStatus =
-  "pending" | "fetching" | "done" | "failed" | "skipped";
+export type ChapterStatus = "pending" | "fetching" | "done" | "failed";
 
-/** A chapter link discovered on the index page, plus its scrape result. */
+/** A chapter listed by a source, plus the result of downloading it. */
 export interface Chapter {
   id: string;
   url: string;
-  /** Anchor text from the index page — fallback title. */
-  linkText: string;
-  /** Chapter number parsed from the URL/anchor text, used for sorting. */
+  /** Title as the source's index lists it; the fallback when the body has none. */
+  label: string;
+  /** Display number, and the sort key when every chapter has one. */
   order: number | null;
   selected: boolean;
   status: ChapterStatus;
-  /** True when the page asks for a password; the book gets a link instead of content. */
-  protected?: boolean;
-  /** Title read from the chapter page itself once fetched. */
+  /** Body unavailable (password, paywall); exports link to the original page. */
+  locked?: boolean;
+  /** Title read from the chapter body itself, when it offers a better one. */
   title?: string;
-  /** Cleaned inner HTML of the page's main content. */
   html?: string;
   wordCount?: number;
   error?: string;
@@ -24,25 +22,18 @@ export interface Chapter {
 export interface StoryMeta {
   title: string;
   author: string;
+  /** BCP-47 code for `dc:language`. */
   language: string;
-  /** Cleaned index content without the chapter list — used as the synopsis. */
   descriptionHtml: string;
   sourceUrl: string;
+  /** Cover published by the source; exports prefer it over any other cover. */
+  coverUrl?: string;
 }
 
-export interface ScrapeOptions {
+/** Reader-facing download settings. */
+export interface ScrapeSettings {
   stripImages: boolean;
-  /** Parallel chapter fetches. */
-  concurrency: number;
-  /** Pause between each fetch to stay polite to the source server. */
-  delayMs: number;
-  /** Attempts per chapter before giving up. */
-  retries: number;
 }
-
-export type CleanOptions = Pick<ScrapeOptions, "stripImages">;
-
-export type IndexParseOptions = Pick<ScrapeOptions, "stripImages">;
 
 export interface LogEntry {
   id: number;
@@ -51,13 +42,12 @@ export interface LogEntry {
   message: string;
 }
 
-/** Result of a proxied fetch, carrying the post-redirect URL for link resolution. */
-export interface FetchedDocument {
+/** A proxied page plus its post-redirect URL, so relative links resolve. */
+export interface FetchedPage {
   html: string;
   finalUrl: string;
 }
 
-/** Supplies raw image bytes to an exporter. */
 export type ImageFetcher = (
   url: string,
 ) => Promise<{ data: Uint8Array; mimeType: string }>;

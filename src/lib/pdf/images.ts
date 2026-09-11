@@ -1,7 +1,7 @@
 import type { Block } from "../blocks";
 import type { ExportHooks, ImageFetcher } from "../types";
 import { runPool } from "../async";
-import { errorMessage } from "../text";
+import { errorMessage } from "../errors";
 
 const MAX_IMAGE_EDGE = 1400;
 const JPEG_QUALITY = 0.82;

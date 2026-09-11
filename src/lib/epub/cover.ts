@@ -1,4 +1,5 @@
-export async function renderCover(
+/** Fallback cover, drawn from the title, for stories that ship no image. */
+export async function renderPlaceholderCover(
   title: string,
   author: string,
 ): Promise<Uint8Array | null> {

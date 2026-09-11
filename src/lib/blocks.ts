@@ -1,4 +1,4 @@
-import { parseHtml } from "./parser";
+import { parseFragment } from "./html";
 
 export type BlockType =
   "heading" | "subheading" | "paragraph" | "quote" | "list" | "rule" | "image";
@@ -14,10 +14,7 @@ const HEADING_TAGS = new Set(["H1", "H2"]);
 const SUBHEADING_TAGS = new Set(["H3", "H4", "H5", "H6"]);
 
 export function htmlToBlocks(html: string): Block[] {
-  const doc = parseHtml(`<div id="__root">${html}</div>`);
-  const root = doc.getElementById("__root");
-  if (!root) return [];
-
+  const root = parseFragment(html);
   const blocks: Block[] = [];
 
   const push = (type: BlockType, raw: string) => {
@@ -80,8 +77,8 @@ function pushWithLineBreaks(
   element: Element,
   push: (type: BlockType, raw: string) => void,
 ): void {
-  const html = element.innerHTML.replace(/<br\s*\/?>/gi, "\n");
-  const text = parseHtml(`<div>${html}</div>`).body.textContent ?? "";
+  const withNewlines = element.innerHTML.replace(/<br\s*\/?>/gi, "\n");
+  const text = parseFragment(withNewlines).textContent ?? "";
   for (const line of text.split("\n")) push("paragraph", line);
 }
 

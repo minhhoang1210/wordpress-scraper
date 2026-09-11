@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 /**
- * Same-origin passthrough for targets that lack CORS headers. Two request shapes:
+ * Same-origin passthrough for targets that lack CORS headers — WordPress pages
+ * and every story image. Two request shapes:
  *
  * - GET /api/fetch?url=…&cookie=… forwards a page or asset and reports the
  *   post-redirect URL in `x-final-url`.
@@ -23,7 +24,7 @@ const BLOCKED_HOSTS =
  * suspicious than an unremarkable client.
  */
 const UPSTREAM_HEADERS = {
-  "user-agent": "wordpress-scraper/1.0 (+https://github.com)",
+  "user-agent": "story-scraper/1.0 (+https://github.com)",
   "accept-language": "en-US,en;q=0.9,vi;q=0.8",
 };
 

@@ -1,8 +1,8 @@
 import type { ExportHooks, ImageFetcher } from "../types";
 import { toXhtmlFragment } from "../xhtml";
-import { errorMessage } from "../text";
+import { errorMessage } from "../errors";
 
-const MIME_EXTENSIONS: Record<string, string> = {
+const EXTENSIONS_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/jpg": "jpg",
   "image/png": "png",
@@ -10,6 +10,10 @@ const MIME_EXTENSIONS: Record<string, string> = {
   "image/webp": "webp",
   "image/svg+xml": "svg",
 };
+
+export function extensionForMimeType(mimeType: string): string {
+  return EXTENSIONS_BY_MIME[mimeType] ?? "jpg";
+}
 
 export interface EmbeddedImage {
   id: string;
@@ -52,7 +56,7 @@ export async function embedImages(
 
     try {
       const { data, mimeType } = await fetchImage(src);
-      const path = `images/${id}.${MIME_EXTENSIONS[mimeType] ?? "jpg"}`;
+      const path = `images/${id}.${extensionForMimeType(mimeType)}`;
       images.push({ id, path, mimeType, data });
       byId.set(id, path);
       img.setAttribute("src", path);

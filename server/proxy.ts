@@ -11,9 +11,9 @@ const middleware: Connect.NextHandleFunction = (req, res, next) => {
   void handle(req, res);
 };
 
-export function wordpressProxy(): Plugin {
+export function corsProxy(): Plugin {
   return {
-    name: "wordpress-scraper-proxy",
+    name: "story-scraper-proxy",
     configureServer: (server) => void server.middlewares.use(middleware),
     configurePreviewServer: (server) => void server.middlewares.use(middleware),
   };

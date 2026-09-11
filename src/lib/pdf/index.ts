@@ -19,7 +19,7 @@ export type PageSize = "a4" | "a5" | "letter";
 export interface PdfOptions extends ExportHooks {
   pageSize: PageSize;
   fontSize: number;
-  /** Supplies image bytes through the proxy; omit to build a text-only PDF. */
+  /** Supplies image bytes; omit to build a text-only PDF. */
   fetchImage?: ImageFetcher;
 }
 
@@ -96,8 +96,8 @@ function buildSections(meta: StoryMeta, chapters: Chapter[]): Section[] {
 
   for (const [index, chapter] of chapters.entries()) {
     sections.push({
-      title: chapter.title || chapter.linkText || `Chương ${index + 1}`,
-      blocks: chapter.protected
+      title: chapter.title || chapter.label || `Chương ${index + 1}`,
+      blocks: chapter.locked
         ? lockedBlocks(chapter)
         : htmlToBlocks(chapter.html ?? ""),
     });
@@ -111,7 +111,7 @@ function lockedBlocks(chapter: Chapter): Block[] {
   return [
     {
       type: "paragraph",
-      text: "Chương này được bảo vệ bằng mật khẩu trên trang gốc nên nội dung không tải về được. Mở liên kết dưới đây bằng trình duyệt và nhập mật khẩu để đọc tiếp:",
+      text: "Không tải được nội dung chương này từ trang gốc. Mở liên kết dưới đây bằng trình duyệt để đọc tiếp:",
     },
     { type: "subheading", text: chapter.url },
   ];

@@ -56,9 +56,9 @@ export function buildOpf(options: {
   modified: string;
   manifest: string[];
   spine: string[];
-  hasCover: boolean;
+  coverImageId?: string;
 }): string {
-  const { meta, uuid, modified, manifest, spine, hasCover } = options;
+  const { meta, uuid, modified, manifest, spine, coverImageId } = options;
   const indent = (entries: string[]) =>
     entries.map((entry) => `    ${entry}`).join("\n");
 
@@ -66,8 +66,9 @@ export function buildOpf(options: {
   const creator = meta.author
     ? `    <dc:creator>${escapeXml(meta.author)}</dc:creator>\n`
     : "";
-  const coverMeta = hasCover
-    ? '    <meta name="cover" content="cover-image"/>\n'
+  // EPUB 2 readers find the cover through this meta element, not the manifest.
+  const coverMeta = coverImageId
+    ? `    <meta name="cover" content="${escapeXml(coverImageId)}"/>\n`
     : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>

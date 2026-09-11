@@ -1,7 +1,7 @@
-# Trình tải truyện WordPress
+# Trình tải truyện
 
-Biến một trang mục lục truyện trên WordPress thành file **EPUB** hoặc **PDF**.
-Toàn bộ xử lý chạy trong trình duyệt (Vue 3 + TypeScript + Tailwind).
+Biến một truyện trên **WordPress** hoặc **Wattpad** thành file **EPUB** hoặc
+**PDF**. Toàn bộ xử lý chạy trong trình duyệt (Vue 3 + TypeScript + Tailwind).
 
 ## Chạy tại máy
 
@@ -14,18 +14,39 @@ Mở http://localhost:5173.
 
 ## Cách dùng
 
-1. **Tìm chương** — dán URL trang mục lục. App quét mọi liên kết bài viết trong
-   trang (lọc bỏ liên kết vỏ ngoài: chuyên mục, tác giả, chia sẻ…), không bắt
-   buộc liên kết phải chứa từ khoá, nên trang chỉ đánh số `1, 2, 3…` vẫn quét
-   đủ.
-2. **Tải chương** — chọn chương rồi bấm tải. Chương lỗi tải lại được riêng.
-   Nếu truyện có chương bị khoá mật khẩu, điền mật khẩu vào ô _Mật khẩu chương
-   bị khoá_ ở bước 1 để app mở khoá và tải nội dung bình thường. Mỗi chương có
-   thể dùng một mật khẩu khác nhau: nhập nhiều mật khẩu cách nhau bằng dấu `|`
-   (ví dụ `abc | def | ghi`) thì mỗi chương bị khoá sẽ được thử lần lượt từng
-   mật khẩu cho tới khi mở được. Bỏ trống thì chương bị khoá sẽ xuất ra liên
-   kết tới trang gốc thay vì nội dung.
+Mỗi nguồn là một tab riêng và giữ trạng thái độc lập — đổi tab không làm mất
+truyện đang tải dở ở tab kia.
+
+1. **Chọn nguồn & dán liên kết**
+   - _WordPress_: liên kết trang mục lục. App quét mọi liên kết bài viết trong
+     trang (lọc bỏ chuyên mục, tác giả, chia sẻ…), nên mục lục chỉ đánh số
+     `1, 2, 3…` vẫn nhận đủ chương.
+   - _Wattpad_: liên kết truyện (`wattpad.com/story/…`) hoặc liên kết một
+     chương bất kỳ. Danh sách chương lấy trực tiếp từ API, đúng thứ tự tác giả
+     đăng.
+2. **Tải chương** — chọn chương rồi bấm tải; chương lỗi tải lại được riêng.
+   Kéo thả để đổi thứ tự trước khi xuất.
 3. **Xuất** — tải xuống bản EPUB hoặc PDF.
+
+### Chương bị khoá
+
+- _WordPress_: điền mật khẩu vào ô _Mật khẩu chương bị khoá_ ở bước 1. Nhiều
+  mật khẩu cách nhau bằng dấu `|` (ví dụ `abc | def | ghi`) thì mỗi chương bị
+  khoá sẽ thử lần lượt từng mật khẩu cho tới khi mở được.
+- _Wattpad_: chương thuộc bản trả phí không trả về nội dung.
+
+Chương không mở được sẽ xuất ra liên kết tới trang gốc thay cho nội dung.
+
+## Ảnh bìa EPUB
+
+Chọn theo thứ tự ưu tiên:
+
+1. ảnh bìa do nguồn công bố (Wattpad có sẵn; bản 512px),
+2. **ảnh đầu tiên tải được** trong truyện — đường mặc định của WordPress,
+3. bìa tự vẽ từ tên truyện và tác giả.
+
+Ảnh được dùng làm bìa vẫn chỉ lưu một lần trong sách. Bật _Bỏ hình ảnh_ thì
+không ảnh nào được tải, kể cả ảnh bìa, và sách dùng bìa tự vẽ.
 
 ## Vì sao cần proxy?
 
@@ -37,36 +58,51 @@ tới `wp-login.php?action=postpass` (chỉ riêng form mật khẩu của WordP
 về cookie phiên qua header `x-set-cookie`. Mật khẩu và cookie chỉ đi qua proxy
 của bạn, không lưu trữ lâu dài.
 
+API của Wattpad trả `Access-Control-Allow-Origin: *` nên được gọi trực tiếp,
+không qua proxy. Riêng ảnh (mọi nguồn) vẫn đi qua proxy cho nhất quán.
+
+> API Wattpad dùng ở đây là API nội bộ của chính web client Wattpad, không có
+> cam kết ổn định — Wattpad đổi endpoint thì phần `src/lib/sources/wattpad/`
+> phải cập nhật theo.
+
 ## Triển khai lên Vercel
 
 Import repo vào Vercel (hoặc `npx vercel`), không cần biến môi trường. Lưu ý:
 
 - Proxy trở thành **công khai** — bật _Deployment Protection_ nếu cần.
-- Mỗi chương là một lần gọi function (tính hạn mức plan Hobby).
+- Mỗi chương WordPress là một lần gọi function (tính hạn mức plan Hobby).
 - Response serverless giới hạn 4,5 MB; ảnh quá lớn bị bỏ qua, không làm hỏng file.
 
 ## Xuất file
 
-Cả hai bản mở đầu bằng nội dung trang mục lục làm giới thiệu.
+Cả hai bản mở đầu bằng phần giới thiệu truyện.
 
-- **EPUB 3** — bìa tự tạo, mục lục, ảnh tải về nhúng sẵn để đọc offline
-  (bỏ ảnh bằng tuỳ chọn _Bỏ hình ảnh_).
+- **EPUB 3** — bìa, mục lục, ảnh tải về nhúng sẵn để đọc offline.
 - **PDF** — trang tiêu đề, mục lục bấm được kèm số trang, khổ A4/A5/Letter, font
-  Noto Sans nhúng sẵn (tiếng Việt hiển thị đúng, chữ chọn được). Không vẽ ảnh —
-  truyện có tranh nên dùng bản EPUB.
+  Noto Sans nhúng sẵn (tiếng Việt hiển thị đúng, chữ chọn được).
 
 ## Cấu trúc thư mục
 
-| Đường dẫn               | Vai trò                                              |
-| ----------------------- | ---------------------------------------------------- |
-| `api/fetch.ts`          | Endpoint chuyển tiếp CORS (Vercel + local)           |
-| `server/proxy.ts`       | Gắn endpoint vào server Vite dev/preview             |
-| `src/composables/`      | Trạng thái ứng dụng (scraper, theme)                 |
-| `src/lib/parser.ts`     | Trích xuất nội dung, nhận diện chương, làm sạch HTML |
-| `src/lib/fetcher.ts`    | Gọi proxy, thử lại với backoff                       |
-| `src/lib/epub/`, `pdf/` | Đóng gói EPUB 3 / dựng PDF                           |
-| `src/lib/types.ts`      | Kiểu dùng chung giữa các module                      |
-| `src/components/`       | Giao diện (danh sách chương, log, theme…)            |
+| Đường dẫn                   | Vai trò                                                      |
+| --------------------------- | ------------------------------------------------------------ |
+| `api/fetch.ts`              | Endpoint chuyển tiếp CORS (Vercel + local)                   |
+| `server/proxy.ts`           | Gắn endpoint vào server Vite dev/preview                     |
+| `src/composables/`          | Trạng thái ứng dụng (scraper, log, theme)                    |
+| `src/lib/sources/`          | Adapter từng nguồn — thêm nguồn mới chỉ cần thêm một thư mục |
+| `src/lib/sources/types.ts`  | Hợp đồng `StorySource` / `StorySession` mà nguồn phải theo   |
+| `src/lib/html.ts`, `url.ts` | Phân tích và làm sạch HTML, xử lý URL dùng chung             |
+| `src/lib/http.ts`           | Gọi mạng: qua proxy hoặc trực tiếp, kèm thử lại backoff      |
+| `src/lib/epub/`, `pdf/`     | Đóng gói EPUB 3 / dựng PDF                                   |
+| `src/lib/export.ts`         | Chọn bộ dựng theo định dạng và đặt tên tệp                   |
+| `src/components/`           | Giao diện (tab nguồn, danh sách chương, log, theme…)         |
+
+### Thêm một nguồn mới
+
+Tạo `src/lib/sources/<ten>/index.ts` xuất một `StorySource`: khai báo tên, mẫu
+liên kết, mức độ gọi mạng cho phép (`fetchPolicy`), ô bí mật nếu cần
+(`credentialField`), và một `createSession()` trả về `loadIndex` + `loadChapter`.
+Đăng ký nguồn trong `src/lib/sources/index.ts` — phần giao diện tự có thêm tab,
+không phải sửa gì.
 
 ## Code style
 
