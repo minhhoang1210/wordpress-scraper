@@ -61,10 +61,7 @@ export async function fetchJson<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   return withRetries(async () => {
-    const response = await fetch(url, {
-      signal: options.signal,
-      headers: { accept: "application/json" },
-    });
+    const response = await fetchDirect(url, "application/json", options.signal);
     const body = await response.text();
 
     if (!response.ok) throw new Error(describeJsonError(response, body));
@@ -82,10 +79,29 @@ export async function fetchPlainText(
 ): Promise<string> {
   return withRetries(async () => {
     const response = await expectOk(
-      await fetch(url, { signal: options.signal, headers: { accept: "*/*" } }),
+      await fetchDirect(url, "*/*", options.signal),
     );
     return response.text();
   }, options);
+}
+
+/**
+ * A cross-origin call from the browser must send no referrer: Wattpad answers
+ * any /api/v3 request carrying a foreign `Referer` with 400 PermissionDenied
+ * ("go to developer.wattpad.com to get an API key"), which is what the browser
+ * sends by default. A third-party host has no business knowing the page URL
+ * either.
+ */
+function fetchDirect(
+  url: string,
+  accept: string,
+  signal?: AbortSignal,
+): Promise<Response> {
+  return fetch(url, {
+    signal,
+    headers: { accept },
+    referrerPolicy: "no-referrer",
+  });
 }
 
 async function expectOk(response: Response): Promise<Response> {

@@ -65,6 +65,12 @@ của bạn, không lưu trữ lâu dài.
 API của Wattpad trả `Access-Control-Allow-Origin: *` nên được gọi trực tiếp,
 không qua proxy. Riêng ảnh (mọi nguồn) vẫn đi qua proxy cho nhất quán.
 
+Mọi lời gọi trực tiếp đều đặt `referrerPolicy: "no-referrer"` trong
+`src/lib/http.ts`. Wattpad trả 400 `PermissionDenied` ("go to
+developer.wattpad.com to get an API key") cho mọi request `/api/v3` mang
+`Referer` của domain khác, mà đó đúng là header browser tự gửi kèm. Bỏ dòng
+đó là tab Wattpad hỏng ngay, dù `curl` vẫn chạy tốt.
+
 > API Wattpad dùng ở đây là API nội bộ của chính web client Wattpad, không có
 > cam kết ổn định. Wattpad đổi endpoint thì phần `src/lib/sources/wattpad/`
 > phải cập nhật theo.
