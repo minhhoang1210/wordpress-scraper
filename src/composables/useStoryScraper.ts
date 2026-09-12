@@ -13,7 +13,6 @@ import type { DownloadContext, StorySession } from "../lib/sources/types";
 import { formatBytes } from "../lib/text";
 import type { Chapter, ScrapeSettings, StoryMeta } from "../lib/types";
 import { useActivityLog } from "./useActivityLog";
-import { useStoryAnalysis } from "./useStoryAnalysis";
 
 export type Phase =
   "idle" | "loading" | "ready" | "downloading" | "done" | "error";
@@ -22,7 +21,6 @@ export type StoryScraper = ReturnType<typeof useStoryScraper>;
 
 export function useStoryScraper(source: StorySource) {
   const log = useActivityLog();
-  const analysis = useStoryAnalysis(log);
 
   const storyUrl = ref("");
   const credential = ref("");
@@ -83,14 +81,12 @@ export function useStoryScraper(source: StorySource) {
     statusMessage.value = "Đang tải thông tin truyện…";
     meta.value = null;
     chapters.value = [];
-    analysis.reset();
 
     try {
       const index = await session.loadIndex(url, contextFor(signal));
       meta.value = index.meta;
       chapters.value = index.chapters;
       phase.value = "ready";
-      analysis.restore(index.meta);
 
       if (index.chapters.length === 0) {
         log.warn("Không thấy chương nào ở liên kết này.");
@@ -266,7 +262,6 @@ export function useStoryScraper(source: StorySource) {
 
   return {
     source,
-    analysis,
     logs: log.entries,
     storyUrl,
     credential,

@@ -3,14 +3,11 @@ import { computed } from "vue";
 import ActivityLog from "./ActivityLog.vue";
 import RailSection from "./RailSection.vue";
 import type { StoryScraper } from "../composables/useStoryScraper";
-import { useGeminiKey } from "../composables/useGeminiKey";
 
 const props = defineProps<{ scraper: StoryScraper }>();
 
 const credentialField = computed(() => props.scraper.source.credentialField);
 const hasBook = computed(() => props.scraper.downloaded.value.length > 0);
-
-const { apiKey } = useGeminiKey();
 </script>
 
 <template>
@@ -44,30 +41,6 @@ const { apiKey } = useGeminiKey();
         {{ credentialField.hint }}
       </p>
     </div>
-  </RailSection>
-
-  <RailSection title="Tóm tắt bằng Gemini">
-    <label for="gemini-key" class="mb-1.5 block text-sm">Khoá API</label>
-    <input
-      id="gemini-key"
-      v-model="apiKey"
-      type="password"
-      autocomplete="off"
-      spellcheck="false"
-      placeholder="AQ…"
-      aria-describedby="gemini-hint"
-      class="field"
-    />
-    <p id="gemini-hint" class="mt-1.5 text-xs leading-relaxed text-app-faint">
-      <a
-        href="https://aistudio.google.com/apikey"
-        target="_blank"
-        rel="noreferrer"
-        class="text-app-accent underline underline-offset-2"
-      >
-        Lấy khoá miễn phí
-      </a>
-    </p>
   </RailSection>
 
   <RailSection title="Lưu thành sách">
