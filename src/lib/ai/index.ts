@@ -24,7 +24,7 @@ import {
 /** The free tier caps requests per minute, so batches go one at a time. */
 const REQUEST_GAP_MS = 4_000;
 
-const MAX_EVENT_CHARS = 60_000;
+const MAX_EVENT_CHARS = 40_000;
 const MIN_EVENTS = 8;
 
 export { GEMINI_MODEL } from "./gemini";

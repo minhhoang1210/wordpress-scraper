@@ -162,12 +162,8 @@ function start(): void {
               :max="maxScope"
               class="field w-20 py-1.5"
             />
-            chương đầu trong {{ maxScope }} chương đã tải.
+            chương trong {{ maxScope }} chương đã tải.
           </label>
-          <p class="mt-1.5 text-xs leading-relaxed text-app-faint">
-            Tóm tắt cả bộ là lộ hết nội dung. Dừng ở chương bạn đang đọc thì an
-            toàn hơn.
-          </p>
 
           <button type="button" class="btn btn-accent mt-5" @click="start">
             Đọc tóm tắt

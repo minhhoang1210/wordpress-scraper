@@ -58,14 +58,16 @@ const { apiKey } = useGeminiKey();
       aria-describedby="gemini-hint"
       class="field"
     />
-    <a
-      href="https://aistudio.google.com/apikey"
-      target="_blank"
-      rel="noreferrer"
-      class="text-app-accent underline underline-offset-2"
-    >
-      Lấy khoá miễn phí
-    </a>
+    <p id="gemini-hint" class="mt-1.5 text-xs leading-relaxed text-app-faint">
+      <a
+        href="https://aistudio.google.com/apikey"
+        target="_blank"
+        rel="noreferrer"
+        class="text-app-accent underline underline-offset-2"
+      >
+        Lấy khoá miễn phí
+      </a>
+    </p>
   </RailSection>
 
   <RailSection title="Lưu thành sách">
