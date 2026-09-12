@@ -27,6 +27,10 @@ export interface StoryMeta {
   sourceUrl: string;
   /** Cover published by the source; exports prefer it over any other cover. */
   coverUrl?: string;
+  /** Cover the reader picked by hand; wins over every other cover. */
+  coverDataUrl?: string;
+  series?: string;
+  seriesIndex?: number;
 }
 
 export interface ScrapeSettings {

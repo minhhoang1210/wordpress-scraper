@@ -70,6 +70,7 @@ export function buildOpf(options: {
   const coverMeta = coverImageId
     ? `    <meta name="cover" content="${escapeXml(coverImageId)}"/>\n`
     : "";
+  const seriesMeta = buildSeriesMeta(meta);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id" xml:lang="${escapeXml(meta.language)}">
@@ -80,7 +81,7 @@ ${creator}    <dc:language>${escapeXml(meta.language)}</dc:language>
     <dc:source>${escapeXml(meta.sourceUrl)}</dc:source>
     <dc:date>${modified}</dc:date>
     <meta property="dcterms:modified">${modified}</meta>
-${coverMeta}  </metadata>
+${coverMeta}${seriesMeta}  </metadata>
   <manifest>
 ${indent(manifest)}
   </manifest>
@@ -89,6 +90,32 @@ ${indent(spine)}
   </spine>
 </package>
 `;
+}
+
+/**
+ * Reader libraries split on this: EPUB 3 defines `belongs-to-collection`, while
+ * Calibre and most e-ink readers only read the `calibre:` pair.
+ */
+function buildSeriesMeta(meta: StoryMeta): string {
+  const series = meta.series?.trim();
+  if (!series) return "";
+
+  const name = escapeXml(series);
+  const lines = [
+    `    <meta property="belongs-to-collection" id="series">${name}</meta>`,
+    `    <meta refines="#series" property="collection-type">series</meta>`,
+  ];
+
+  const index = meta.seriesIndex;
+  if (typeof index === "number" && Number.isFinite(index)) {
+    lines.push(
+      `    <meta refines="#series" property="group-position">${index}</meta>`,
+      `    <meta name="calibre:series_index" content="${index}"/>`,
+    );
+  }
+  lines.push(`    <meta name="calibre:series" content="${name}"/>`);
+
+  return `${lines.join("\n")}\n`;
 }
 
 export function buildNavBody(navPoints: NavPoint[]): string {

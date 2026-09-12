@@ -174,14 +174,17 @@ function lockedBody(chapter: Chapter): string {
 }
 
 /**
- * Cover preference: the image the source publishes, then the first illustration
- * downloaded from the story itself, then a cover drawn from the title.
+ * Cover preference: the reader's own pick, then the image the source publishes,
+ * then the first illustration downloaded from the story, then a drawn cover.
  */
 async function resolveCover(
   meta: StoryMeta,
   images: EmbeddedImage[],
   options: EpubOptions,
 ): Promise<EmbeddedImage | null> {
+  const chosen = await readChosenCover(meta.coverDataUrl, options);
+  if (chosen) return chosen;
+
   const published = await downloadCover(meta.coverUrl, options);
   if (published) return published;
   if (images.length > 0) return images[0];
@@ -195,6 +198,30 @@ async function resolveCover(
         data: drawn,
       }
     : null;
+}
+
+/** A hand-picked cover carries its own bytes, so it ignores "no images". */
+async function readChosenCover(
+  dataUrl: string | undefined,
+  options: EpubOptions,
+): Promise<EmbeddedImage | null> {
+  if (!dataUrl) return null;
+
+  try {
+    const response = await fetch(dataUrl);
+    const mimeType = response.headers.get("content-type") ?? "image/jpeg";
+    return {
+      id: COVER_IMAGE_ID,
+      path: `images/cover.${extensionForMimeType(mimeType)}`,
+      mimeType,
+      data: new Uint8Array(await response.arrayBuffer()),
+    };
+  } catch (error) {
+    options.onWarning?.(
+      `Không dùng được ảnh bìa đã chọn: ${errorMessage(error)}`,
+    );
+    return null;
+  }
 }
 
 async function downloadCover(

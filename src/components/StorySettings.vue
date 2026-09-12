@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import ActivityLog from "./ActivityLog.vue";
+import MetadataDialog from "./MetadataDialog.vue";
 import RailSection from "./RailSection.vue";
 import type { StoryScraper } from "../composables/useStoryScraper";
 
@@ -8,6 +9,7 @@ const props = defineProps<{ scraper: StoryScraper }>();
 
 const credentialField = computed(() => props.scraper.source.credentialField);
 const hasBook = computed(() => props.scraper.downloaded.value.length > 0);
+const metadataOpen = ref(false);
 </script>
 
 <template>
@@ -44,6 +46,15 @@ const hasBook = computed(() => props.scraper.downloaded.value.length > 0);
   </RailSection>
 
   <RailSection title="Lưu thành sách">
+    <button
+      type="button"
+      class="btn btn-outline mb-2 w-full"
+      :disabled="!scraper.meta.value"
+      @click="metadataOpen = true"
+    >
+      Sửa thông tin sách
+    </button>
+
     <div class="flex gap-2">
       <button
         type="button"
@@ -103,4 +114,6 @@ const hasBook = computed(() => props.scraper.downloaded.value.length > 0);
   <RailSection title="Nhật ký">
     <ActivityLog :entries="scraper.logs.value" />
   </RailSection>
+
+  <MetadataDialog v-model:open="metadataOpen" :scraper="scraper" />
 </template>

@@ -1,6 +1,6 @@
 import { parseFragment, sanitize } from "../../html";
 import type { Chapter, StoryMeta } from "../../types";
-import { escapeXml } from "../../xhtml";
+import { textToParagraphs } from "../../text";
 import { requestOptions } from "../request";
 import {
   UNTITLED_STORY,
@@ -146,20 +146,10 @@ function toStoryMeta(
     title: story.title?.trim() || UNTITLED_STORY,
     author: story.user?.name?.trim() || story.user?.username?.trim() || "",
     language: language ?? "en",
-    descriptionHtml: toParagraphs(story.description ?? ""),
+    descriptionHtml: textToParagraphs(story.description ?? ""),
     sourceUrl: story.url ?? requestedUrl,
     coverUrl: story.cover?.replace(COVER_WIDTH, "-512-"),
   };
-}
-
-/** Wattpad descriptions are plain text, so they have to be escaped, not embedded. */
-function toParagraphs(text: string): string {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => `<p>${escapeXml(line)}</p>`)
-    .join("");
 }
 
 export const wattpadSource: StorySource = {

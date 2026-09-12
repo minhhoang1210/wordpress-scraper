@@ -1,4 +1,4 @@
-import { computed, reactive, ref, shallowRef } from "vue";
+import { computed, reactive, ref } from "vue";
 import { runPool } from "../lib/async";
 import { downloadBlob } from "../lib/download";
 import { errorMessage, isAbortError } from "../lib/errors";
@@ -25,7 +25,7 @@ export function useStoryScraper(source: StorySource) {
   const storyUrl = ref("");
   const credential = ref("");
   const phase = ref<Phase>("idle");
-  const meta = shallowRef<StoryMeta | null>(null);
+  const meta = ref<StoryMeta | null>(null);
   const chapters = ref<Chapter[]>([]);
   const errorText = ref("");
   const statusMessage = ref("");
@@ -34,6 +34,7 @@ export function useStoryScraper(source: StorySource) {
   const settings = reactive<ScrapeSettings>({ stripImages: false });
   const pdfSettings = reactive<PdfSettings>({ pageSize: "a5", fontSize: 11 });
 
+  let originalMeta: StoryMeta | null = null;
   let session: StorySession | null = null;
   let controller: AbortController | null = null;
 
@@ -85,6 +86,7 @@ export function useStoryScraper(source: StorySource) {
     try {
       const index = await session.loadIndex(url, contextFor(signal));
       meta.value = index.meta;
+      originalMeta = { ...index.meta };
       chapters.value = index.chapters;
       phase.value = "ready";
 
@@ -214,6 +216,11 @@ export function useStoryScraper(source: StorySource) {
     }
   }
 
+  /** Undoes hand edits by putting the scraped metadata back. */
+  function restoreMeta(): void {
+    if (originalMeta) meta.value = { ...originalMeta };
+  }
+
   function selectAll(value: boolean): void {
     for (const chapter of chapters.value) chapter.selected = value;
   }
@@ -287,6 +294,7 @@ export function useStoryScraper(source: StorySource) {
     exportEpub: () => runExport("epub"),
     exportPdf: () => runExport("pdf"),
     selectAll,
+    restoreMeta,
     moveChapterBefore,
   };
 }
