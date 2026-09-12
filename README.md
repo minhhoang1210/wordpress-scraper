@@ -70,6 +70,12 @@ developer.wattpad.com to get an API key") cho mọi request `/api/v3` mang
 `Referer` của domain khác, mà đó đúng là header browser tự gửi kèm. Bỏ dòng
 đó là tab Wattpad hỏng ngay, dù `curl` vẫn chạy tốt.
 
+Truyện dài dễ chạm giới hạn tốc độ của Wattpad, vì một chương dài được trả về
+theo nhiều trang và mỗi trang là một lần gọi. Gặp `429`, toàn bộ lượt tải dừng
+lại đúng khoảng thời gian máy chủ yêu cầu trong header `Retry-After`, không
+riêng chương bị chặn, rồi mới chạy tiếp. Nhật ký ghi rõ đang chờ bao lâu, và
+nút _Huỷ_ vẫn bấm được trong lúc chờ.
+
 > API Wattpad dùng ở đây là API nội bộ của chính web client Wattpad, không có
 > cam kết ổn định. Wattpad đổi endpoint thì phần `src/lib/sources/wattpad/`
 > phải cập nhật theo.

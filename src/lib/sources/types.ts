@@ -1,3 +1,4 @@
+import type { RateGate } from "../async";
 import type { Chapter, ScrapeSettings, StoryMeta } from "../types";
 
 export type SourceId = "wordpress" | "wattpad";
@@ -32,6 +33,8 @@ export interface ChapterContent {
 export interface DownloadContext extends ScrapeSettings {
   signal: AbortSignal;
   retries: number;
+  /** One per download run; a 429 anywhere pauses the whole run. */
+  gate: RateGate;
   credential: string;
   warn: (message: string) => void;
   notice: (message: string) => void;

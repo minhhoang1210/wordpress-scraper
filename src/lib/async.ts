@@ -1,3 +1,5 @@
+import { abortError } from "./errors";
+
 export interface PoolOptions {
   concurrency: number;
   delayMs?: number;
@@ -32,4 +34,27 @@ export async function runPool<T>(
   );
 
   await Promise.all(workers);
+}
+
+/**
+ * A shared brake. One 429 holds back every worker, not just the request that
+ * tripped it, so the pool stops hammering a server that asked for a pause.
+ */
+export class RateGate {
+  private until = 0;
+
+  pause(ms: number): void {
+    this.until = Math.max(this.until, Date.now() + ms);
+  }
+
+  get pausedForMs(): number {
+    return Math.max(0, this.until - Date.now());
+  }
+
+  async wait(signal?: AbortSignal): Promise<void> {
+    while (this.pausedForMs > 0) {
+      if (signal?.aborted) throw abortError();
+      await sleep(Math.min(this.pausedForMs, 250));
+    }
+  }
 }

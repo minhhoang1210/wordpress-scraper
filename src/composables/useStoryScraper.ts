@@ -1,5 +1,5 @@
 import { computed, reactive, ref } from "vue";
-import { runPool } from "../lib/async";
+import { RateGate, runPool } from "../lib/async";
 import { downloadBlob } from "../lib/download";
 import { errorMessage, isAbortError } from "../lib/errors";
 import {
@@ -243,6 +243,7 @@ export function useStoryScraper(source: StorySource) {
   function contextFor(signal: AbortSignal): DownloadContext {
     return {
       signal,
+      gate: new RateGate(),
       retries: source.fetchPolicy.retries,
       stripImages: settings.stripImages,
       credential: credential.value,

@@ -1,3 +1,4 @@
+import { sleep } from "../../async";
 import { parseFragment, sanitize } from "../../html";
 import type { Chapter, StoryMeta } from "../../types";
 import { textToParagraphs } from "../../text";
@@ -6,6 +7,7 @@ import {
   UNTITLED_STORY,
   type ChapterContent,
   type DownloadContext,
+  type FetchPolicy,
   type StoryIndex,
   type StorySession,
   type StorySource,
@@ -22,6 +24,13 @@ import { parseWattpadUrl, partIdFromUrl } from "./storyUrl";
 
 /** Guards the page loop when a part reports no page count. */
 const MAX_PART_PAGES = 50;
+
+/**
+ * A long part is served in pages, and those requests do not go through the
+ * chapter pool, so they need their own spacing or one chapter alone can burst
+ * dozens of calls at Wattpad.
+ */
+const FETCH_POLICY: FetchPolicy = { concurrency: 2, delayMs: 400, retries: 3 };
 
 const COVER_WIDTH = /-256-/;
 
@@ -92,6 +101,7 @@ class WattpadSession implements StorySession {
     const pages: string[] = [];
 
     for (let page = 1; page <= pageCount; page++) {
+      if (page > 1) await sleep(FETCH_POLICY.delayMs);
       const text = await fetchPartTextPage(
         partId,
         page,
@@ -157,6 +167,6 @@ export const wattpadSource: StorySource = {
   name: "Wattpad",
   urlPlaceholder: "https://www.wattpad.com/story/123456789-ten-truyen",
   urlHint: "Dán liên kết truyện hoặc liên kết một chương bất kỳ.",
-  fetchPolicy: { concurrency: 3, delayMs: 200, retries: 2 },
+  fetchPolicy: FETCH_POLICY,
   createSession: () => new WattpadSession(),
 };

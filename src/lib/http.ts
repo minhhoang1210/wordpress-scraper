@@ -1,6 +1,6 @@
 import type { FetchedPage } from "./types";
 import { abortError, isAbortError } from "./errors";
-import { sleep } from "./async";
+import { RateGate, sleep } from "./async";
 
 /**
  * Same-origin passthrough for sources that send no CORS headers; see api/fetch.ts.
@@ -8,11 +8,30 @@ import { sleep } from "./async";
 export const PROXY_ENDPOINT = "/api/fetch";
 
 const RETRY_BASE_DELAY_MS = 600;
+const THROTTLE_BASE_DELAY_MS = 2_000;
+const MAX_THROTTLE_DELAY_MS = 60_000;
+
+/** A 429 is the server pacing us, not a failure, so it gets a longer leash. */
+const THROTTLE_RETRIES = 5;
+const TOO_MANY_REQUESTS = 429;
+
+export class HttpError extends Error {
+  readonly status: number;
+  readonly retryAfterMs: number | null;
+
+  constructor(status: number, message: string, retryAfterMs: number | null) {
+    super(message);
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
 
 export interface RequestOptions {
   retries?: number;
   signal?: AbortSignal;
-  onRetry?: (attempt: number, error: Error) => void;
+  /** Shared for one run, so a 429 slows every chapter down, not just this one. */
+  gate?: RateGate;
+  onRetry?: (attempt: number, error: Error, waitMs: number) => void;
 }
 
 export function proxyUrl(target: string, cookie?: string): string {
@@ -64,7 +83,9 @@ export async function fetchJson<T>(
     const response = await fetchDirect(url, "application/json", options.signal);
     const body = await response.text();
 
-    if (!response.ok) throw new Error(describeJsonError(response, body));
+    if (!response.ok) {
+      throw httpError(response, describeJsonError(response, body));
+    }
     try {
       return JSON.parse(body) as T;
     } catch {
@@ -106,10 +127,29 @@ function fetchDirect(
 
 async function expectOk(response: Response): Promise<Response> {
   if (response.ok) return response;
-  throw new Error(describeStatus(response));
+  throw httpError(response, describeStatus(response));
+}
+
+function httpError(response: Response, message: string): HttpError {
+  return new HttpError(response.status, message, retryAfterOf(response));
+}
+
+/** `Retry-After` is either a count of seconds or an absolute HTTP date. */
+function retryAfterOf(response: Response): number | null {
+  const raw = response.headers.get("retry-after");
+  if (!raw) return null;
+
+  const seconds = Number(raw.trim());
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+  const at = Date.parse(raw);
+  return Number.isFinite(at) ? Math.max(0, at - Date.now()) : null;
 }
 
 function describeStatus(response: Response): string {
+  if (response.status === TOO_MANY_REQUESTS) {
+    return "HTTP 429, máy chủ yêu cầu gọi chậm lại";
+  }
   return `HTTP ${response.status} ${response.statusText || ""}`.trim();
 }
 
@@ -127,12 +167,15 @@ function describeJsonError(response: Response, body: string): string {
 
 async function withRetries<T>(
   attempt: () => Promise<T>,
-  { retries = 2, signal, onRetry }: RequestOptions,
+  { retries = 2, signal, onRetry, gate }: RequestOptions,
 ): Promise<T> {
   let lastError: Error = new Error("Chưa thử tải lần nào.");
+  let rounds = 0;
+  let throttles = 0;
 
-  for (let round = 0; round <= retries; round++) {
+  for (;;) {
     if (signal?.aborted) throw abortError();
+    await gate?.wait(signal);
 
     try {
       return await attempt();
@@ -140,9 +183,22 @@ async function withRetries<T>(
       if (isAbortError(error)) throw error;
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      if (round < retries) {
-        onRetry?.(round + 1, lastError);
-        await sleep(RETRY_BASE_DELAY_MS * 2 ** round);
+      if (error instanceof HttpError && error.status === TOO_MANY_REQUESTS) {
+        if (throttles >= THROTTLE_RETRIES) break;
+        const wait = Math.min(
+          error.retryAfterMs ?? THROTTLE_BASE_DELAY_MS * 2 ** throttles,
+          MAX_THROTTLE_DELAY_MS,
+        );
+        throttles++;
+        gate?.pause(wait);
+        onRetry?.(throttles, lastError, wait);
+        await sleep(wait);
+      } else {
+        if (rounds >= retries) break;
+        const wait = RETRY_BASE_DELAY_MS * 2 ** rounds;
+        rounds++;
+        onRetry?.(rounds, lastError, wait);
+        await sleep(wait);
       }
     }
   }
