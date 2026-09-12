@@ -1,9 +1,24 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import ChapterList from "./ChapterList.vue";
+import StoryAnalysis from "./StoryAnalysis.vue";
 import type { StoryScraper } from "../composables/useStoryScraper";
 
 const props = defineProps<{ scraper: StoryScraper }>();
+
+type View = "chapters" | "summary" | "characters";
+
+const VIEWS: { id: View; label: string }[] = [
+  { id: "chapters", label: "Chương" },
+  { id: "summary", label: "Tóm tắt" },
+  { id: "characters", label: "Nhân vật" },
+];
+
+const view = ref<View>("chapters");
+
+const analysisView = computed(() =>
+  view.value === "characters" ? "characters" : ("summary" as const),
+);
 
 const count = (value: number) => value.toLocaleString("vi-VN");
 
@@ -98,13 +113,44 @@ const showProgress = computed(
       />
     </div>
 
-    <ChapterList
+    <div
       v-if="scraper.meta.value"
+      role="tablist"
+      aria-label="Cách xem truyện"
+      class="flex shrink-0 gap-1 border-b border-app-border px-5"
+    >
+      <button
+        v-for="tab in VIEWS"
+        :key="tab.id"
+        type="button"
+        role="tab"
+        :aria-selected="view === tab.id"
+        class="-mb-px cursor-pointer border-b-2 px-3 py-2.5 text-[13px] transition-colors"
+        :class="
+          view === tab.id
+            ? 'border-app-accent font-medium text-app-strong'
+            : 'border-transparent text-app-muted hover:text-app-text'
+        "
+        @click="view = tab.id"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <ChapterList
+      v-if="scraper.meta.value && view === 'chapters'"
       :chapters="scraper.chapters.value"
       :disabled="scraper.busy.value"
       class="min-h-0 flex-1"
       @select-all="scraper.selectAll"
       @move-before="scraper.moveChapterBefore"
+    />
+
+    <StoryAnalysis
+      v-else-if="scraper.meta.value"
+      :scraper="scraper"
+      :view="analysisView"
+      class="min-h-0 flex-1"
     />
 
     <div v-else class="flex flex-1 items-center px-5 py-14 lg:px-10">

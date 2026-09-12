@@ -40,6 +40,45 @@ truyện đang tải dở ở tab kia.
 
 Chương không mở được sẽ xuất ra liên kết tới trang gốc thay cho nội dung.
 
+## Tóm tắt bằng Gemini
+
+Hai tab _Tóm tắt_ và _Nhân vật_ đọc những chương đã tải rồi dựng ra mạch
+truyện, danh sách nhân vật kèm các cách gọi khác nhau, và quan hệ giữa họ.
+
+Khoá API do bạn tự dán vào mục _Tóm tắt bằng Gemini_ ở cột trái
+([lấy khoá tại đây](https://aistudio.google.com/apikey)). Khoá nằm trong
+`localStorage` của trình duyệt và đi thẳng tới Google qua header
+`x-goog-api-key`, không qua proxy, không lên máy chủ nào khác. Google có gửi
+header CORS cho `generativelanguage.googleapis.com` nên gọi trực tiếp được,
+giống trường hợp Wattpad.
+
+Model khai báo ở một chỗ duy nhất: `GEMINI_MODEL` trong `src/lib/ai/gemini.ts`.
+
+### Cách chạy
+
+Một bộ truyện dài vượt xa hạn mức token mỗi phút của free tier, nên việc đọc
+chia làm hai bước:
+
+1. **Đọc từng phần**: chương được gom thành lô khoảng 60 000 ký tự, mỗi lô một
+   lượt gọi, trả về sự kiện, nhân vật và quan hệ dưới dạng JSON theo
+   `responseSchema`.
+2. **Tổng hợp**: các phần được gộp lại, nhân vật trùng nhận ra qua `aliases`
+   (bản danh, tự, hiệu, biệt danh), rồi một lượt gọi cuối dựng bản tóm tắt
+   hoàn chỉnh.
+
+Các lô chạy tuần tự, cách nhau 4 giây cho hợp hạn mức. Gặp 429 thì chờ đúng
+`retryDelay` Google trả về rồi thử lại. Truyện quá dài thì danh sách sự kiện
+được rút gọn bớt trước bước tổng hợp.
+
+### Những chỗ hay vướng
+
+- **Bộ lọc an toàn**: nội dung tình cảm dễ bị Gemini chặn. `safetySettings` đã
+  đặt ở ngưỡng lỏng nhất, nhưng lô nào vẫn bị chặn thì bỏ qua kèm cảnh báo
+  trong nhật ký, không làm hỏng cả lượt chạy.
+- **Hạn mức**: mỗi lần đọc tốn nhiều lượt gọi. Kết quả lưu trong `localStorage`
+  theo liên kết truyện nên mở lại không tốn thêm quota.
+- **Spoil**: ô _Đọc N chương đầu_ để dừng ở đúng chỗ bạn đang đọc.
+
 ## Ảnh bìa EPUB
 
 Chọn theo thứ tự ưu tiên:
@@ -101,6 +140,7 @@ Cả hai bản mở đầu bằng phần giới thiệu truyện.
 | `src/lib/sources/types.ts`  | Hợp đồng `StorySource` / `StorySession` mà nguồn phải theo  |
 | `src/lib/html.ts`, `url.ts` | Phân tích và làm sạch HTML, xử lý URL dùng chung            |
 | `src/lib/http.ts`           | Gọi mạng: qua proxy hoặc trực tiếp, kèm thử lại backoff     |
+| `src/lib/ai/`               | Đọc truyện bằng Gemini: chia lô, prompt, gộp kết quả        |
 | `src/lib/epub/`, `pdf/`     | Đóng gói EPUB 3 / dựng PDF                                  |
 | `src/lib/export.ts`         | Chọn bộ dựng theo định dạng và đặt tên tệp                  |
 | `src/components/`           | Giao diện (tab nguồn, danh sách chương, log, theme…)        |
