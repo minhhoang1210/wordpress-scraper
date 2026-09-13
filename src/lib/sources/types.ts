@@ -12,8 +12,8 @@ export interface CredentialField {
   hint: string;
 }
 
+/** Chapters run in parallel by the reader's own setting, not by source. */
 export interface FetchPolicy {
-  concurrency: number;
   delayMs: number;
   retries: number;
 }

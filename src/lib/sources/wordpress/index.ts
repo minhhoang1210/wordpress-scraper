@@ -179,7 +179,7 @@ export const wordpressSource: StorySource = {
   urlPlaceholder: "https://ten-mien.wordpress.com/ten-truyen/",
   urlHint:
     "Dán liên kết trang mục lục. Mọi liên kết bài viết trong trang đều được quét.",
-  fetchPolicy: { concurrency: 4, delayMs: 250, retries: 2 },
+  fetchPolicy: { delayMs: 250, retries: 2 },
   credentialField: {
     label: "Mật khẩu chương bị khoá",
     placeholder: "abc | def | ghi",

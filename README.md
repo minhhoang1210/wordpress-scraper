@@ -70,6 +70,9 @@ developer.wattpad.com to get an API key") cho mọi request `/api/v3` mang
 `Referer` của domain khác, mà đó đúng là header browser tự gửi kèm. Bỏ dòng
 đó là tab Wattpad hỏng ngay, dù `curl` vẫn chạy tốt.
 
+Số chương tải cùng lúc chỉnh được trong mục _Tuỳ chọn_, từ 1 tới 8, mặc định 3.
+Cao hơn thì nhanh hơn nhưng dễ chạm giới hạn của nguồn.
+
 Truyện dài dễ chạm giới hạn tốc độ của Wattpad, vì một chương dài được trả về
 theo nhiều trang và mỗi trang là một lần gọi. Số trang đã có sẵn trong mục lục
 nên các trang của cùng một chương được tải song song, không phải chờ nhau.

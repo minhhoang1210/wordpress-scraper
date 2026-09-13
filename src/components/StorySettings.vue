@@ -3,7 +3,10 @@ import { computed, ref } from "vue";
 import ActivityLog from "./ActivityLog.vue";
 import MetadataDialog from "./MetadataDialog.vue";
 import RailSection from "./RailSection.vue";
-import type { StoryScraper } from "../composables/useStoryScraper";
+import {
+  CONCURRENCY_CHOICES,
+  type StoryScraper,
+} from "../composables/useStoryScraper";
 
 const props = defineProps<{ scraper: StoryScraper }>();
 
@@ -22,6 +25,33 @@ const metadataOpen = ref(false);
       />
       <span>Không tải hình ảnh (kể cả ảnh bìa)</span>
     </label>
+
+    <div class="mt-4">
+      <label for="concurrency" class="mb-1.5 block text-sm">
+        Số chương tải cùng lúc
+      </label>
+      <select
+        id="concurrency"
+        v-model.number="scraper.concurrency.value"
+        :disabled="scraper.busy.value"
+        aria-describedby="concurrency-hint"
+        class="field w-20"
+      >
+        <option
+          v-for="choice in CONCURRENCY_CHOICES"
+          :key="choice"
+          :value="choice"
+        >
+          {{ choice }}
+        </option>
+      </select>
+      <p
+        id="concurrency-hint"
+        class="mt-1.5 text-xs leading-relaxed text-app-faint"
+      >
+        Cao hơn thì tải nhanh hơn nhưng dễ bị nguồn giới hạn và trả lỗi 429.
+      </p>
+    </div>
 
     <div v-if="credentialField" class="mt-4">
       <label for="credential" class="mb-1.5 block text-sm">

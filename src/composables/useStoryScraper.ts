@@ -15,6 +15,9 @@ import { formatBytes } from "../lib/text";
 import type { Chapter, ScrapeSettings, StoryMeta } from "../lib/types";
 import { useActivityLog } from "./useActivityLog";
 
+export const CONCURRENCY_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8];
+const DEFAULT_CONCURRENCY = 3;
+
 export type Phase =
   "idle" | "loading" | "ready" | "downloading" | "done" | "error";
 
@@ -34,6 +37,7 @@ export function useStoryScraper(source: StorySource) {
   const exporting = ref<ExportFormat | null>(null);
 
   const settings = reactive<ScrapeSettings>({ stripImages: false });
+  const concurrency = ref(DEFAULT_CONCURRENCY);
   const pdfSettings = reactive<PdfSettings>({ pageSize: "a5", fontSize: 11 });
 
   let originalMeta: StoryMeta | null = null;
@@ -123,13 +127,16 @@ export function useStoryScraper(source: StorySource) {
     }
 
     const context = contextFor(signal);
-    const { concurrency, delayMs } = source.fetchPolicy;
 
     try {
       await runPool(
         queue,
         (chapter) => downloadChapter(activeSession, chapter, context),
-        { concurrency, delayMs, signal },
+        {
+          concurrency: concurrency.value,
+          delayMs: source.fetchPolicy.delayMs,
+          signal,
+        },
       );
 
       if (signal.aborted) {
@@ -294,6 +301,7 @@ export function useStoryScraper(source: StorySource) {
     statusMessage,
     exporting,
     settings,
+    concurrency,
     pdfSettings,
     selected,
     downloaded,

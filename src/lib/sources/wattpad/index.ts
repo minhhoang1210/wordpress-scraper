@@ -25,7 +25,7 @@ import { parseWattpadUrl, partIdFromUrl } from "./storyUrl";
 /** Guards the page loop when a part reports no page count. */
 const MAX_PART_PAGES = 50;
 
-const FETCH_POLICY: FetchPolicy = { concurrency: 3, delayMs: 200, retries: 2 };
+const FETCH_POLICY: FetchPolicy = { delayMs: 200, retries: 2 };
 
 /** Higher and one long chapter on its own bursts at Wattpad. */
 const PAGE_CONCURRENCY = 2;
