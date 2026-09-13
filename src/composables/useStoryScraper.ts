@@ -2,6 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { RateGate, runPool } from "../lib/async";
 import { downloadBlob } from "../lib/download";
 import { errorMessage, isAbortError } from "../lib/errors";
+import { isRateLimited } from "../lib/http";
 import {
   exportStory,
   type ExportFormat,
@@ -28,6 +29,7 @@ export function useStoryScraper(source: StorySource) {
   const meta = ref<StoryMeta | null>(null);
   const chapters = ref<Chapter[]>([]);
   const errorText = ref("");
+  const rateLimited = ref(false);
   const statusMessage = ref("");
   const exporting = ref<ExportFormat | null>(null);
 
@@ -114,6 +116,7 @@ export function useStoryScraper(source: StorySource) {
     const signal = restartController();
     phase.value = "downloading";
     errorText.value = "";
+    rateLimited.value = false;
     for (const chapter of queue) {
       chapter.status = "pending";
       chapter.error = undefined;
@@ -164,6 +167,7 @@ export function useStoryScraper(source: StorySource) {
       }
       chapter.status = "failed";
       chapter.error = errorMessage(error);
+      if (isRateLimited(error)) rateLimited.value = true;
       log.error(`${chapter.label}: ${chapter.error}`);
     }
   }
@@ -173,8 +177,17 @@ export function useStoryScraper(source: StorySource) {
       `Tải xong ${downloaded.value.length} chương, ` +
       `tổng ${totalWords.value.toLocaleString("vi-VN")} từ`;
 
-    if (failed.value.length === 0) log.success(`${done}.`);
-    else log.warn(`${done}, còn ${failed.value.length} chương lỗi.`);
+    if (failed.value.length === 0) {
+      log.success(`${done}.`);
+      return;
+    }
+
+    log.warn(`${done}, còn ${failed.value.length} chương lỗi.`);
+    if (rateLimited.value) {
+      log.warn(
+        `${source.name} đang giới hạn tốc độ. Chờ 1 tới 2 phút rồi bấm Thử lại.`,
+      );
+    }
   }
 
   const retryFailed = () => downloadChapters(failed.value);
@@ -277,6 +290,7 @@ export function useStoryScraper(source: StorySource) {
     meta,
     chapters,
     errorText,
+    rateLimited,
     statusMessage,
     exporting,
     settings,

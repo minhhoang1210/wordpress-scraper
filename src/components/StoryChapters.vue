@@ -27,6 +27,13 @@ const canDownload = computed(
   () => props.scraper.selected.value.length > 0 && !props.scraper.busy.value,
 );
 
+const showRateLimitHint = computed(
+  () =>
+    props.scraper.rateLimited.value &&
+    props.scraper.failed.value.length > 0 &&
+    !props.scraper.busy.value,
+);
+
 const showProgress = computed(
   () => props.scraper.busy.value || props.scraper.progress.value > 0,
 );
@@ -85,6 +92,11 @@ const showProgress = computed(
           {{ count(scraper.totalWords.value) }} từ
         </p>
       </div>
+
+      <p v-if="showRateLimitHint" class="mt-2.5 text-[13px] text-app-alert">
+        {{ scraper.source.name }} đang giới hạn tốc độ. Chờ 1 tới 2 phút rồi bấm
+        Thử lại, những chương đã tải xong vẫn được giữ nguyên.
+      </p>
 
       <span
         v-if="showProgress"

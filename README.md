@@ -71,10 +71,13 @@ developer.wattpad.com to get an API key") cho mọi request `/api/v3` mang
 đó là tab Wattpad hỏng ngay, dù `curl` vẫn chạy tốt.
 
 Truyện dài dễ chạm giới hạn tốc độ của Wattpad, vì một chương dài được trả về
-theo nhiều trang và mỗi trang là một lần gọi. Gặp `429`, toàn bộ lượt tải dừng
-lại đúng khoảng thời gian máy chủ yêu cầu trong header `Retry-After`, không
-riêng chương bị chặn, rồi mới chạy tiếp. Nhật ký ghi rõ đang chờ bao lâu, và
-nút _Huỷ_ vẫn bấm được trong lúc chờ.
+theo nhiều trang và mỗi trang là một lần gọi. Số trang đã có sẵn trong mục lục
+nên các trang của cùng một chương được tải song song, không phải chờ nhau.
+
+Gặp `429`, cả lượt tải khựng lại một nhịp ngắn rồi thử lại vài lần, tôn trọng
+`Retry-After` nhưng không chờ quá 15 giây. Hết số lần thử thì chương đó báo lỗi
+và giao diện nhắc chờ 1 tới 2 phút rồi bấm _Thử lại_, thay vì đứng im chờ hết
+giới hạn. Chương đã tải xong vẫn được giữ, và nút _Huỷ_ luôn bấm được.
 
 > API Wattpad dùng ở đây là API nội bộ của chính web client Wattpad, không có
 > cam kết ổn định. Wattpad đổi endpoint thì phần `src/lib/sources/wattpad/`

@@ -1,4 +1,4 @@
-import { sleep } from "../../async";
+import { runPool } from "../../async";
 import { parseFragment, sanitize } from "../../html";
 import type { Chapter, StoryMeta } from "../../types";
 import { textToParagraphs } from "../../text";
@@ -25,12 +25,10 @@ import { parseWattpadUrl, partIdFromUrl } from "./storyUrl";
 /** Guards the page loop when a part reports no page count. */
 const MAX_PART_PAGES = 50;
 
-/**
- * A long part is served in pages, and those requests do not go through the
- * chapter pool, so they need their own spacing or one chapter alone can burst
- * dozens of calls at Wattpad.
- */
-const FETCH_POLICY: FetchPolicy = { concurrency: 2, delayMs: 400, retries: 3 };
+const FETCH_POLICY: FetchPolicy = { concurrency: 3, delayMs: 200, retries: 2 };
+
+/** Higher and one long chapter on its own bursts at Wattpad. */
+const PAGE_CONCURRENCY = 2;
 
 const COVER_WIDTH = /-256-/;
 
@@ -88,20 +86,42 @@ class WattpadSession implements StorySession {
     return { title: "", html, locked: false };
   }
 
-  /** Long parts are served in pages; the first empty page marks the end. */
+  /** The index reports the page count, so the pages need not be read in turn. */
   private async loadPartBody(
     partId: number,
     chapter: Chapter,
     context: DownloadContext,
   ): Promise<string> {
-    const pageCount = Math.min(
-      this.pageCountByPart.get(partId) ?? MAX_PART_PAGES,
-      MAX_PART_PAGES,
+    const known = this.pageCountByPart.get(partId);
+    if (!known) return this.probePartBody(partId, chapter, context);
+
+    const pageCount = Math.min(known, MAX_PART_PAGES);
+    const pages = new Array<string>(pageCount).fill("");
+
+    await runPool(
+      Array.from({ length: pageCount }, (_, index) => index),
+      async (index) => {
+        pages[index] = await fetchPartTextPage(
+          partId,
+          index + 1,
+          requestOptions(context, chapter.label),
+        );
+      },
+      { concurrency: PAGE_CONCURRENCY, signal: context.signal },
     );
+
+    const gap = pages.findIndex((text) => !text.trim());
+    return (gap === -1 ? pages : pages.slice(0, gap)).join("\n");
+  }
+
+  private async probePartBody(
+    partId: number,
+    chapter: Chapter,
+    context: DownloadContext,
+  ): Promise<string> {
     const pages: string[] = [];
 
-    for (let page = 1; page <= pageCount; page++) {
-      if (page > 1) await sleep(FETCH_POLICY.delayMs);
+    for (let page = 1; page <= MAX_PART_PAGES; page++) {
       const text = await fetchPartTextPage(
         partId,
         page,

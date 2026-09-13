@@ -9,11 +9,15 @@ export const PROXY_ENDPOINT = "/api/fetch";
 
 const RETRY_BASE_DELAY_MS = 600;
 const THROTTLE_BASE_DELAY_MS = 2_000;
-const MAX_THROTTLE_DELAY_MS = 60_000;
 
-/** A 429 is the server pacing us, not a failure, so it gets a longer leash. */
-const THROTTLE_RETRIES = 5;
+/** Past this, reporting beats waiting: the reader can come back in a minute. */
+const MAX_THROTTLE_DELAY_MS = 15_000;
+const THROTTLE_RETRIES = 2;
 const TOO_MANY_REQUESTS = 429;
+
+export function isRateLimited(error: unknown): boolean {
+  return error instanceof HttpError && error.status === TOO_MANY_REQUESTS;
+}
 
 export class HttpError extends Error {
   readonly status: number;
@@ -185,10 +189,13 @@ async function withRetries<T>(
 
       if (error instanceof HttpError && error.status === TOO_MANY_REQUESTS) {
         if (throttles >= THROTTLE_RETRIES) break;
-        const wait = Math.min(
-          error.retryAfterMs ?? THROTTLE_BASE_DELAY_MS * 2 ** throttles,
-          MAX_THROTTLE_DELAY_MS,
-        );
+        // Jitter keeps the paused workers from resuming in lockstep.
+        const wait =
+          Math.min(
+            error.retryAfterMs ?? THROTTLE_BASE_DELAY_MS * 2 ** throttles,
+            MAX_THROTTLE_DELAY_MS,
+          ) +
+          Math.random() * 500;
         throttles++;
         gate?.pause(wait);
         onRetry?.(throttles, lastError, wait);
